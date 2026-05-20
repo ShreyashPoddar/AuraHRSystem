@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-warm-sand: #F5F0E8;
+  --color-cream: #FAF7F2;
+  --color-gold: #C8A84B;
+  --color-rust: #C4522A;
+  --color-sage: #5A7A5C;
+  --color-ink: #1C1A16;
+
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: var(--color-warm-sand);
+  --color-foreground: var(--color-ink);
+}
+
+:root {
+  --background: #F5F0E8;
+  --foreground: #1C1A16;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+@layer utilities {
+  .bento-card {
+    @apply bg-cream rounded-[14px] border border-ink/12;
+  }
+}

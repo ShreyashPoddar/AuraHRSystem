@@ -1,0 +1,2 @@
+page.tsx(20,3): error TS2305: Module '"lucide-react"' has no exported member 'Github'.
+page.tsx(23,3): error TS2305: Module '"lucide-react"' has no exported member 'Linkedin'.
