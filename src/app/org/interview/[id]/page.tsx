@@ -140,6 +140,8 @@ export default function OrgInterviewPage() {
               configOverwrite={{
                 startWithAudioMuted: false,
                 startWithVideoMuted: false,
+                prejoinPageEnabled: false,
+                prejoinConfig: { enabled: false },
                 disableModeratorIndicator: true,
               }}
               interfaceConfigOverwrite={{

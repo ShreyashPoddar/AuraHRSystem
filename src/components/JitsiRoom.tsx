@@ -28,6 +28,9 @@ export default function JitsiRoom({ roomName, candidateName, onEvent }: JitsiRoo
         userInfo: { displayName: candidateName, email: "room@aurahr.local" },
         configOverwrite: {
           startWithAudioMuted: true,
+          startWithVideoMuted: false,
+          prejoinPageEnabled: false,
+          prejoinConfig: { enabled: false },
           disableDeepLinking: true,
         },
         interfaceConfigOverwrite: {

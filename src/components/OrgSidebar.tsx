@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import {
   Home, FileText, Briefcase, Calendar, HelpCircle, Settings,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, User,
 } from 'lucide-react';
 
 const menuItems = [
@@ -16,6 +16,7 @@ const menuItems = [
   { href: '/org/scheduler',    label: 'Smart Scheduler',   icon: Calendar },
   { href: '/org/help',         label: 'Help',              icon: HelpCircle },
   { href: '/org/settings',     label: 'Settings',          icon: Settings },
+  { href: '/candidate',        label: 'Candidate View',    icon: User },
 ];
 
 export function OrgSidebar() {

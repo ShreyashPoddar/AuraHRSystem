@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import {
   Home, Briefcase, FileText, User, HelpCircle, Settings,
-  ChevronsLeft, ChevronsRight, Calendar,
+  ChevronsLeft, ChevronsRight, Calendar, Shield,
 } from 'lucide-react';
 
 const menuItems = [
@@ -17,6 +17,7 @@ const menuItems = [
   { href: '/candidate/profile',      label: 'Profile',          icon: User },
   { href: '/candidate/help',         label: 'Help',             icon: HelpCircle },
   { href: '/candidate/settings',     label: 'Settings',         icon: Settings },
+  { href: '/org',                    label: 'Recruiter View',    icon: Shield },
 ];
 
 export function CandidateSidebar() {

@@ -16,6 +16,9 @@ export default function JitsiRoom({ roomName, userName }: JitsiRoomProps) {
         roomName={roomName}
         configOverwrite={{
           startWithAudioMuted: true,
+          startWithVideoMuted: false,
+          prejoinPageEnabled: false,
+          prejoinConfig: { enabled: false },
           disableModeratorIndicator: true,
           startScreenSharing: false,
           enableEmailInStats: false,

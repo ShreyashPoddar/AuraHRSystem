@@ -51,7 +51,37 @@ export default function MyApplicationsPage() {
           setSelectedAppId(apps[0].id); // Open latest one by default
         }
       } catch (err) {
-        console.error(err);
+        console.warn("Moodle backend offline. Using mock applications.", err);
+        const mockApps: Application[] = [
+          {
+            id: 1,
+            jobid: 1,
+            job_title: 'Senior Frontend Engineer',
+            job_department: 'Engineering',
+            stage: 'academia',
+            jd_score: 95,
+            academia_score: 0,
+            interview_score: 0,
+            overall_score: 0,
+            malpractice: 0,
+            timecreated: Math.floor(Date.now() / 1000) - 86400 * 2
+          },
+          {
+            id: 2,
+            jobid: 2,
+            job_title: 'Product Manager',
+            job_department: 'Product',
+            stage: 'interview',
+            jd_score: 88,
+            academia_score: 85,
+            interview_score: 0,
+            overall_score: 85,
+            malpractice: 0,
+            timecreated: Math.floor(Date.now() / 1000) - 86400 * 5
+          }
+        ];
+        setApplications(mockApps);
+        setSelectedAppId(mockApps[0].id);
       } finally {
         setLoading(false);
       }
