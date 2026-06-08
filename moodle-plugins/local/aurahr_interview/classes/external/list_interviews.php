@@ -63,6 +63,7 @@ class list_interviews extends external_api {
             $interviews[] = [
                 'id'                   => (int)$r->id,
                 'jobid'                => (int)$r->jobid,
+                'applicationid'        => (int)$r->applicationid,
                 'job_title'            => $r->job_title,
                 'candidateid'          => (int)$r->candidateid,
                 'candidate_name'       => "{$r->candidate_firstname} {$r->candidate_lastname}",
@@ -87,6 +88,7 @@ class list_interviews extends external_api {
                 new external_single_structure([
                     'id'                => new external_value(PARAM_INT, 'Interview ID'),
                     'jobid'             => new external_value(PARAM_INT, 'Job ID'),
+                    'applicationid'     => new external_value(PARAM_INT, 'Application ID'),
                     'job_title'         => new external_value(PARAM_TEXT, 'Job title'),
                     'candidateid'       => new external_value(PARAM_INT, 'Candidate user ID'),
                     'candidate_name'    => new external_value(PARAM_TEXT, 'Candidate name'),

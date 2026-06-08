@@ -59,9 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Determine role from user data.
   // In Moodle, managers/admins = organization side, regular users = candidate side.
-  // This can be refined with custom role checks via web service.
+  // We check both the custom 'role' field and Moodle's native roles list.
   const userRole = user
-    ? (user.roles?.some(r => r.shortname === 'manager' || r.shortname === 'editingteacher')
+    ? (user.role === 'organization' || user.roles?.some(r => r.shortname === 'manager' || r.shortname === 'editingteacher')
         ? 'organization'
         : 'candidate')
     : null;

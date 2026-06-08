@@ -84,7 +84,7 @@ type DBSchema = {
 const defaultData: DBSchema = {
   employees: [], activities: [], candidates: [], jobDescriptions: [],
   payroll: [], taxDeclarations: [],
-  settings: { gstin: '', tan: '', companyName: 'NexusHR Global', defaultState: 'Maharashtra' }
+  settings: { gstin: '', tan: '', companyName: 'aurhr Global', defaultState: 'Maharashtra' }
 };
 
 export async function getDb(): Promise<DBSchema> {

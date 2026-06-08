@@ -40,7 +40,7 @@ class get_job extends external_api {
             $stages[] = ['stage' => $s->stage, 'count' => (int)$s->cnt];
         }
 
-        return [
+        $result = [
             'id'                => (int)$job->id,
             'title'             => $job->title,
             'description'       => $job->description,
@@ -54,14 +54,20 @@ class get_job extends external_api {
             'timecreated'       => (int)$job->timecreated,
             'timemodified'      => (int)$job->timemodified,
             'stage_counts'      => $stages,
-            'jd_analysis'       => $jd ? [
+        ];
+
+        if ($jd) {
+            $result['jd_analysis'] = [
                 'must_have'    => $jd->must_have ?? '[]',
                 'good_to_have' => $jd->good_to_have ?? '[]',
                 'future_proof' => $jd->future_proof ?? '[]',
                 'team_gap'     => $jd->team_gap ?? '[]',
                 'pass_count'   => (int)$jd->pass_count,
-            ] : null,
-        ];
+                'is_finalized' => (bool)($jd->is_finalized ?? 0),
+            ];
+        }
+
+        return $result;
     }
 
     public static function execute_returns(): external_single_structure {
@@ -90,6 +96,7 @@ class get_job extends external_api {
                 'future_proof' => new external_value(PARAM_RAW, 'JSON array of future-proof skills'),
                 'team_gap'     => new external_value(PARAM_RAW, 'JSON array of team gap skills'),
                 'pass_count'   => new external_value(PARAM_INT, 'Candidates to pass'),
+                'is_finalized' => new external_value(PARAM_BOOL, 'Whether JD round is finalized', VALUE_OPTIONAL),
             ], 'JD analysis data', VALUE_OPTIONAL),
         ]);
     }

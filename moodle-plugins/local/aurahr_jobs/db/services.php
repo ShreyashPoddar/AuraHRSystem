@@ -133,6 +133,27 @@ $functions = [
         'ajax'        => true,
     ],
 
+    'local_aurahr_jobs_upload_photo' => [
+        'classname'   => 'local_aurahr_jobs\external\upload_photo',
+        'description' => 'Upload candidate profile photo',
+        'type'        => 'write',
+        'ajax'        => true,
+    ],
+
+    'local_aurahr_jobs_upload_resume' => [
+        'classname'   => 'local_aurahr_jobs\external\upload_resume',
+        'description' => 'Upload candidate resume file',
+        'type'        => 'write',
+        'ajax'        => true,
+    ],
+
+    'local_aurahr_jobs_get_photo' => [
+        'classname'   => 'local_aurahr_jobs\external\get_photo',
+        'description' => 'Get candidate profile photo',
+        'type'        => 'read',
+        'ajax'        => true,
+    ],
+
     'local_aurahr_jobs_change_password' => [
         'classname'   => 'local_aurahr_jobs\external\change_password',
         'description' => 'Change user password',
@@ -169,7 +190,48 @@ $functions = [
 // Group all functions into a single external service.
 $services = [
     'AuraHR Jobs API' => [
-        'functions'       => array_keys($functions),
+        'functions'       => array_merge(array_keys($functions), [
+            'local_aurahr_jdparser_parse',
+            'local_aurahr_jdparser_match_candidates',
+            'local_aurahr_jdparser_get_analysis',
+            'local_aurahr_jdparser_update_config',
+            'local_aurahr_jobs_upload_photo',
+            'local_aurahr_jobs_upload_resume',
+            
+            'local_aurahr_interview_schedule',
+            'local_aurahr_interview_list',
+            'local_aurahr_interview_get_details',
+            'local_aurahr_interview_submit_score',
+            'local_aurahr_interview_ai_evaluate',
+            'local_aurahr_interview_finalise',
+            'local_aurahr_proctor_log_event',
+            'local_aurahr_proctor_get_report',
+            
+            'local_aurahr_academia_create_assessment',
+            'local_aurahr_academia_generate_questions',
+            'local_aurahr_academia_schedule_test',
+            'local_aurahr_academia_get_assessment',
+            'local_aurahr_academia_get_results',
+            'local_aurahr_academia_get_candidate_test',
+            'local_aurahr_academia_submit_test',
+            'local_aurahr_academia_finalize_assessment',
+            'local_aurahr_academia_log_event',
+
+            'local_aurahr_scheduler_set_availability',
+            'local_aurahr_scheduler_get_availability',
+            'local_aurahr_scheduler_block_time',
+            'local_aurahr_scheduler_auto_schedule',
+            'local_aurahr_scheduler_get_calendar',
+            'local_aurahr_scheduler_request_reschedule',
+            'local_aurahr_scheduler_approve_reschedule',
+            'local_aurahr_scheduler_get_blocked_times',
+            'local_aurahr_scheduler_delete_blocked_time',
+            'local_aurahr_scheduler_get_pending_requests',
+            'local_aurahr_scheduler_update_rules',
+            'local_aurahr_scheduler_get_rules',
+            'local_aurahr_scheduler_cancel_interview',
+            'local_aurahr_scheduler_override_slot',
+        ]),
         'restrictedusers' => 0,
         'enabled'         => 1,
         'shortname'       => 'aurahr_jobs',

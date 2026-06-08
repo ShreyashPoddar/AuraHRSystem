@@ -64,14 +64,16 @@ class finalize_jd extends external_api {
             $index++;
         }
 
-        // Also save the pass count to the jd_analysis table
+        // Also save the pass count to the jd_analysis table and set is_finalized
         if ($analysis = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $job->id])) {
             $analysis->pass_count = $params['pass_count'];
+            $analysis->is_finalized = 1;
             $DB->update_record('local_aurahr_jd_analysis', $analysis);
         } else {
             $new_analysis = (object)[
                 'jobid' => $job->id,
                 'pass_count' => $params['pass_count'],
+                'is_finalized' => 1,
                 'timecreated' => $now,
             ];
             $DB->insert_record('local_aurahr_jd_analysis', $new_analysis);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Bell, User, LogOut, CheckCircle, Clock, FileText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -14,6 +14,7 @@ interface TopNavBarProps {
 
 export function TopNavBar({ title = 'AuraHR', showBack = true }: TopNavBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -22,6 +23,51 @@ export function TopNavBar({ title = 'AuraHR', showBack = true }: TopNavBarProps)
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  const noBackPages = [
+    '/org',
+    '/org/applications',
+    '/org/vacancies',
+    '/org/scheduler',
+    '/org/help',
+    '/org/settings',
+    '/candidate',
+    '/candidate/applications',
+    '/candidate/posts',
+    '/candidate/scheduler',
+    '/candidate/profile',
+    '/candidate/help',
+    '/candidate/settings',
+  ];
+
+  const shouldShowBack = showBack && pathname && !noBackPages.includes(pathname);
+
+  const getDynamicTitle = () => {
+    if (!pathname) return title;
+    if (pathname.startsWith('/org/vacancies/create')) return 'Create Vacancy';
+    if (pathname.match(/^\/org\/vacancies\/\d+$/)) return 'Vacancy Details';
+    if (pathname.match(/^\/org\/applications\/\d+$/)) return 'Application Profile';
+    if (pathname.match(/^\/org\/interview\/\d+$/)) return 'Interview Console';
+    if (pathname.startsWith('/org/applications')) return 'All Applications';
+    if (pathname.startsWith('/org/vacancies')) return 'Vacancies';
+    if (pathname.startsWith('/org/scheduler')) return 'Smart Scheduler';
+    if (pathname.startsWith('/org/settings')) return 'Settings';
+    if (pathname.startsWith('/org/help')) return 'Help & Support';
+    if (pathname.startsWith('/org')) return 'Overview';
+    
+    if (pathname.startsWith('/candidate/applications')) return 'My Applications';
+    if (pathname.startsWith('/candidate/posts')) return 'Job Openings';
+    if (pathname.startsWith('/candidate/scheduler')) return 'My Schedule';
+    if (pathname.startsWith('/candidate/profile')) return 'My Profile';
+    if (pathname.startsWith('/candidate/settings')) return 'Settings';
+    if (pathname.startsWith('/candidate/help')) return 'Help & Support';
+    if (pathname.match(/^\/candidate\/interview\/\d+$/)) return 'Interview Lobby';
+    if (pathname.startsWith('/candidate')) return 'Overview';
+    
+    return title;
+  };
+
+  const displayTitle = getDynamicTitle();
 
   // Close dropdowns on outside click.
   useEffect(() => {
@@ -67,7 +113,7 @@ export function TopNavBar({ title = 'AuraHR', showBack = true }: TopNavBarProps)
     <header className="h-16 flex items-center justify-between px-6 border-b border-ink/8 bg-cream/70 backdrop-blur-xl sticky top-0 z-40 shrink-0">
       {/* Left side: Back + Title */}
       <div className="flex items-center space-x-3">
-        {showBack && (
+        {shouldShowBack && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -77,7 +123,7 @@ export function TopNavBar({ title = 'AuraHR', showBack = true }: TopNavBarProps)
             <ChevronLeft size={20} />
           </motion.button>
         )}
-        <h1 className="font-serif text-lg font-semibold text-ink tracking-tight">{title}</h1>
+        <h1 className="font-serif text-lg font-semibold text-ink tracking-tight">{displayTitle}</h1>
       </div>
 
       {/* Right side: Notifications + Profile */}

@@ -16,14 +16,15 @@ class schedule_test extends external_api {
             'assessmentid' => new external_value(PARAM_INT, 'Assessment ID'),
             'start_time'   => new external_value(PARAM_INT, 'Start time timestamp'),
             'end_time'     => new external_value(PARAM_INT, 'End time timestamp'),
+            'auto_start'   => new external_value(PARAM_BOOL, 'Auto start test', VALUE_DEFAULT, false),
         ]);
     }
 
-    public static function execute(int $assessmentid, int $start_time, int $end_time): array {
+    public static function execute(int $assessmentid, int $start_time, int $end_time, bool $auto_start = false): array {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'assessmentid' => $assessmentid, 'start_time' => $start_time, 'end_time' => $end_time,
+            'assessmentid' => $assessmentid, 'start_time' => $start_time, 'end_time' => $end_time, 'auto_start' => $auto_start,
         ]);
 
         $context = \context_system::instance();
@@ -34,9 +35,32 @@ class schedule_test extends external_api {
         // Update assessment window.
         $assessment->start_time = $params['start_time'];
         $assessment->end_time = $params['end_time'];
+        $assessment->auto_start = $params['auto_start'] ? 1 : 0;
         $assessment->status = 'scheduled';
         $assessment->timemodified = time();
         $DB->update_record('local_aurahr_assessments', $assessment);
+
+        // Reset status for any existing enrolled candidates so they can restart/take the test.
+        $existing_enrols = $DB->get_records('local_aurahr_assess_enrol', ['assessmentid' => $assessment->id]);
+        $now = time();
+        foreach ($existing_enrols as $enrol) {
+            $enrol->status = 'pending';
+            $enrol->score = null;
+            $enrol->completed_at = null;
+            $enrol->started_at = null;
+            $DB->update_record('local_aurahr_assess_enrol', $enrol);
+
+            // Reset the candidate's application record (reset malpractice, set stage to academia, clear score)
+            $app = $DB->get_record('local_aurahr_applications', ['id' => $enrol->applicationid]);
+            if ($app) {
+                $app->stage = 'academia';
+                $app->malpractice = 0;
+                $app->academia_score = null;
+                $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
+                $app->timemodified = $now;
+                $DB->update_record('local_aurahr_applications', $app);
+            }
+        }
 
         // Enroll all candidates currently in the 'screened' stage.
         // We look for applications to the related job that have stage = 'screened'.
@@ -46,7 +70,6 @@ class schedule_test extends external_api {
         $applications = $DB->get_records_sql($sql, ['jobid' => $assessment->jobid]);
 
         $enrolled_count = 0;
-        $now = time();
         foreach ($applications as $app) {
             // Check if already enrolled to avoid duplicates.
             if (!$DB->record_exists('local_aurahr_assess_enrol', ['assessmentid' => $assessment->id, 'userid' => $app->userid])) {

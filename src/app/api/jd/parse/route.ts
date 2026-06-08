@@ -3,7 +3,8 @@ import { getStructuredAIResponse } from '@/lib/neev';
 
 export async function POST(req: Request) {
   try {
-    const { jdText, department } = await req.json();
+    const { jdText, description, department } = await req.json();
+    const finalJdText = jdText || description || '';
 
     // 1. Mock Existing Team Skills for Gap Analysis
     const teamMembers = [
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     // 2. LLM 4-Box Analysis
     const prompt = `
       Analyze this Job Description and the current Team Context.
-      JD: "${jdText}"
+      JD: "${finalJdText}"
       Team Context: ${teamContext}
 
       Provide a 4-box analysis:
@@ -40,11 +41,21 @@ export async function POST(req: Request) {
 
     if (!analysis) throw new Error("JD Analysis failed.");
 
-    // 3. Mock Save JD to DB
-    return NextResponse.json({ ...analysis, id: Math.floor(Math.random() * 1000) });
+    // Map the analysis to what the Create Vacancy page expects
+    const parsed = {
+      title: analysis.role || 'Software Engineer',
+      department: department || 'Engineering',
+      tech_skills: (analysis.mustHave || []).join(', '),
+      nontech_skills: (analysis.goodToHave || []).join(', '),
+      experience_required: '2+ years',
+      short_summary: analysis.summary || '',
+    };
+
+    return NextResponse.json({ success: true, parsed });
 
   } catch (error: any) {
     console.error("JD Parser Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+

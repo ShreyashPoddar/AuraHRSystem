@@ -3,11 +3,11 @@
 import { type ReactNode } from 'react';
 import { OrgSidebar } from '@/components/OrgSidebar';
 import { TopNavBar } from '@/components/TopNavBar';
-import { AuthProvider } from '@/contexts/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
 
 export default function OrgLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
+    <RouteGuard role="organization">
       <div className="flex h-screen overflow-hidden bg-warm-sand">
         {/* Sidebar */}
         <OrgSidebar />
@@ -22,6 +22,6 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
-    </AuthProvider>
+    </RouteGuard>
   );
 }

@@ -21,6 +21,8 @@
         <FIELD NAME="pass_percentage" TYPE="number" LENGTH="5" DECIMALS="2" NOTNULL="true" DEFAULT="60.00"/>
         <FIELD NAME="start_time"   TYPE="int"  LENGTH="10" NOTNULL="false"/>
         <FIELD NAME="end_time"     TYPE="int"  LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="auto_start"   TYPE="int"  LENGTH="1"  NOTNULL="true" DEFAULT="0"
+               COMMENT="1 to automatically start test at scheduled time"/>
         <FIELD NAME="status"       TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="draft"
                COMMENT="draft | scheduled | active | completed"/>
         <FIELD NAME="ai_topic"     TYPE="text" NOTNULL="false"

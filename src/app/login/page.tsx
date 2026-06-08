@@ -1,19 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { LogIn, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { moodleLogin } from '@/lib/moodle';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isAuthenticated, userRole, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect already authenticated users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && userRole) {
+      router.replace(userRole === 'organization' ? '/org' : '/candidate');
+    }
+  }, [isAuthenticated, userRole, isLoading, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,10 +30,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { user } = await moodleLogin(email, password);
+      const { token, user } = await moodleLogin(email, password);
+      login(token, user);
       
       // Automatic RBAC based on department field stored during signup
-      router.push(user.role === 'organization' ? '/org' : '/candidate');
+      router.replace(user.role === 'organization' ? '/org' : '/candidate');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {

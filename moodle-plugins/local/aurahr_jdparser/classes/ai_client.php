@@ -45,6 +45,7 @@ class ai_client {
         $payload = json_encode([
             'model'       => $this->model,
             'temperature' => $temperature,
+            'max_tokens'  => 4096,
             'messages'    => [
                 ['role' => 'system', 'content' => $systemprompt],
                 ['role' => 'user',   'content' => $userprompt],
@@ -81,26 +82,105 @@ class ai_client {
                 "AI API error: $msg");
         }
 
+        if (empty(trim($response))) {
+            throw new \moodle_exception('aicall_failed', 'local_aurahr_jdparser', '', null,
+                "AI API returned empty response");
+        }
+
         $data = json_decode($response, true);
         return $data['choices'][0]['message']['content'] ?? '';
     }
 
     /**
-     * Parse an AI JSON response with error handling.
+     * Send chat completion request and parse it as JSON with retries.
      *
-     * @param string $response Raw AI response text
-     * @return array           Decoded JSON as associative array
+     * @param string $systemprompt
+     * @param string $userprompt
+     * @param float $temperature
+     * @param int $retries
+     * @return array
      */
+    public function chat_json(string $systemprompt, string $userprompt, float $temperature = 0.3, int $retries = 3): array {
+        $last_exception = null;
+        for ($i = 0; $i < $retries; $i++) {
+            try {
+                $response = $this->chat($systemprompt, $userprompt, $temperature);
+                if (empty(trim($response))) {
+                    throw new \moodle_exception('aicall_failed', 'local_aurahr_jdparser', '', null, 'Empty response from AI API');
+                }
+                return $this->parse_json_response($response);
+            } catch (\Exception $e) {
+                $last_exception = $e;
+                if ($i < $retries - 1) {
+                    usleep(500000); // 0.5s buffer before retry
+                }
+            }
+        }
+        throw $last_exception ?: new \moodle_exception('aicall_failed', 'local_aurahr_jdparser', '', null,
+            "AI JSON generation failed after $retries retries");
+    }
+
     public function parse_json_response(string $response): array {
-        // Strip markdown code fences if present.
-        $response = preg_replace('/^```(?:json)?\s*/m', '', $response);
-        $response = preg_replace('/```\s*$/m', '', $response);
+        // Convert to valid UTF-8
+        if (function_exists('mb_convert_encoding')) {
+            $response = mb_convert_encoding($response, 'UTF-8', 'UTF-8');
+        }
+
         $response = trim($response);
+
+        // Extract JSON by finding the first { or [ and the last } or ]
+        $firstCurly = strpos($response, '{');
+        $firstSquare = strpos($response, '[');
+        $first = false;
+
+        if ($firstCurly !== false && $firstSquare !== false) {
+            $first = min($firstCurly, $firstSquare);
+        } else if ($firstCurly !== false) {
+            $first = $firstCurly;
+        } else if ($firstSquare !== false) {
+            $first = $firstSquare;
+        }
+
+        $lastCurly = strrpos($response, '}');
+        $lastSquare = strrpos($response, ']');
+        $last = false;
+
+        if ($lastCurly !== false && $lastSquare !== false) {
+            $last = max($lastCurly, $lastSquare);
+        } else if ($lastCurly !== false) {
+            $last = $lastCurly;
+        } else if ($lastSquare !== false) {
+            $last = $lastSquare;
+        }
+
+        if ($first !== false && $last !== false && $last >= $first) {
+            $response = substr($response, $first, $last - $first + 1);
+        }
 
         $data = json_decode($response, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
+            // If the JSON was truncated at the last '}', it might just need closing brackets
+            $data = json_decode($response . ']}', true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $data = json_decode($response . '}]}', true);
+            }
+        }
+
+        // Fallback: Strip control characters (ASCII 0-31) to resolve control character errors (e.g. unescaped newlines/tabs)
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $clean_response = preg_replace('/[\x00-\x1F\x7F]/', '', $response);
+            $data = json_decode($clean_response, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $data = json_decode($clean_response . ']}', true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    $data = json_decode($clean_response . '}]}', true);
+                }
+            }
+        }
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \moodle_exception('aicall_failed', 'local_aurahr_jdparser', '', null,
-                'Failed to parse AI response as JSON: ' . json_last_error_msg());
+                'Failed to parse AI response as JSON: ' . json_last_error_msg() . ' | Raw Response: ' . substr($response, 0, 800));
         }
 
         return $data;

@@ -76,7 +76,7 @@ export async function parseResumeWithOCRSpace(fileBuffer: Buffer, fileName: stri
     B.Tech in Computer Science | Indian Institute of Technology (IIT)
     
     PROJECTS
-    NexusHR - Global Recruitment Platform
+    aurhr - Global Recruitment Platform
     AuraFlow - Automated Compliance Engine
   `;
 }

@@ -36,6 +36,8 @@ export async function POST(request: Request) {
     // ── Web Service Call ───────────────────────────────────────
     const { wsfunction, params = {}, token } = body;
 
+    console.log(`[Moodle Proxy Request] wsfunction: ${wsfunction}, token: ${token ? token.substring(0, 6) + '...' : 'none'}, params:`, JSON.stringify(params));
+
     if (!wsfunction) {
       return NextResponse.json({ error: 'Missing wsfunction parameter' }, { status: 400 });
     }
@@ -51,10 +53,9 @@ export async function POST(request: Request) {
     url.searchParams.set('moodlewsrestformat', 'json');
 
     // Flatten params into URL search params (Moodle expects flat key-value pairs).
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null) {
-        url.searchParams.set(key, String(value));
-      }
+    const flatParams = flattenParams(params);
+    for (const [key, value] of Object.entries(flatParams)) {
+      url.searchParams.set(key, value);
     }
 
     const moodleRes = await fetch(url.toString());
@@ -186,8 +187,49 @@ async function handleSignup(body: {
 
   // data is an array of created users: [{ id, username }]
   if (Array.isArray(data) && data.length > 0) {
+    if (body.role === 'organization') {
+      const assignUrl = new URL(`${MOODLE_URL}/webservice/rest/server.php`);
+      assignUrl.searchParams.set('wstoken', ADMIN_TOKEN);
+      assignUrl.searchParams.set('wsfunction', 'core_role_assign_roles');
+      assignUrl.searchParams.set('moodlewsrestformat', 'json');
+      assignUrl.searchParams.set('assignments[0][roleid]', '1');
+      assignUrl.searchParams.set('assignments[0][userid]', String(data[0].id));
+      assignUrl.searchParams.set('assignments[0][contextid]', '1');
+
+      try {
+        const assignRes = await fetch(assignUrl.toString());
+        const assignData = await assignRes.json();
+        if (assignData && assignData.exception) {
+          console.error('[Signup Role Assignment Error]', assignData.message);
+        } else {
+          console.log(`Successfully assigned manager role to user ID ${data[0].id}`);
+        }
+      } catch (err) {
+        console.error('[Signup Role Assignment Exception]', err);
+      }
+    }
+
     return NextResponse.json({ id: data[0].id, username: data[0].username });
   }
 
   return NextResponse.json({ error: 'Unexpected response from Moodle' }, { status: 500 });
+}
+
+function flattenParams(params: any, prefix = ''): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    const paramKey = prefix ? `${prefix}[${key}]` : key;
+    if (typeof value === 'object' && value !== null) {
+      Object.assign(result, flattenParams(value, paramKey));
+    } else if (typeof value === 'boolean') {
+      // Moodle's PARAM_BOOL only accepts "0" or "1" — NOT "true"/"false"
+      result[paramKey] = value ? '1' : '0';
+    } else {
+      result[paramKey] = String(value);
+    }
+  }
+  return result;
 }

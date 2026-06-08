@@ -36,21 +36,24 @@ class submit_test extends external_api {
         if ($app) {
             $app->academia_score = $params['score'];
             
-            // Recalculate overall score
-            $scores = array_filter([
-                $app->jd_score ?? 0,
-                $app->academia_score ?? 0,
-                $app->interview_score ?? 0,
-            ], fn($s) => $s > 0);
-            
-            $app->overall_score = !empty($scores) ? array_sum($scores) / count($scores) : 0;
-            
-            if ($app->stage === 'screened') {
-                $app->stage = 'interview';
-            }
+            // Recalculate overall score.
+            $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
             
             $app->timemodified = time();
             $DB->update_record('local_aurahr_applications', $app);
+
+            // Update local_aurahr_assess_enrol record.
+            $assessments = $DB->get_records('local_aurahr_assessments', ['jobid' => $app->jobid], 'id DESC', '*', 0, 1);
+            if ($assessments) {
+                $assessment = reset($assessments);
+                if ($enrol = $DB->get_record('local_aurahr_assess_enrol', ['assessmentid' => $assessment->id, 'userid' => $userid])) {
+                    $enrol->status = 'completed';
+                    $enrol->score = $params['score'];
+                    $enrol->completed_at = time();
+                    $DB->update_record('local_aurahr_assess_enrol', $enrol);
+                }
+            }
+
             return ['success' => true];
         }
 

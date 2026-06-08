@@ -70,15 +70,28 @@ PROMPT;
             }
         }
 
-        // Generate questions via AI.
+        // Generate questions via AI in chunks of 5 to avoid token limits
         $client = new ai_client();
-        $response = $client->chat(
-            self::SYSTEM_PROMPT,
-            "Generate {$assessment->num_questions} questions for:\n\n{$topic}",
-            0.5
-        );
-        $data = $client->parse_json_response($response);
-        $questions = $data['questions'] ?? [];
+        $questions = [];
+        $total_needed = (int)$assessment->num_questions;
+        $chunk_size = 5;
+
+        while ($total_needed > 0) {
+            $to_generate = min($chunk_size, $total_needed);
+            $data = $client->chat_json(
+                self::SYSTEM_PROMPT,
+                "Generate exactly {$to_generate} questions for:\n\n{$topic}",
+                0.5
+            );
+            $chunk_questions = $data['questions'] ?? [];
+            if (!empty($chunk_questions)) {
+                $questions = array_merge($questions, $chunk_questions);
+                $total_needed -= count($chunk_questions);
+            } else {
+                // If it fails to return any questions, break to avoid infinite loop
+                break;
+            }
+        }
 
         // Create a Moodle course for this assessment if not exists.
         if (empty($assessment->courseid)) {

@@ -101,6 +101,8 @@
         <FIELD NAME="team_gap"     TYPE="text" NOTNULL="false" COMMENT="JSON array of team gap skills"/>
         <FIELD NAME="pass_count"   TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="10"
                COMMENT="Number of candidates to pass to next round"/>
+        <FIELD NAME="is_finalized" TYPE="int"  LENGTH="1"  NOTNULL="true" DEFAULT="0"
+               COMMENT="Whether the JD parsing round is finalized"/>
         <FIELD NAME="timecreated"  TYPE="int"  LENGTH="10" NOTNULL="true"/>
       </FIELDS>
       <KEYS>

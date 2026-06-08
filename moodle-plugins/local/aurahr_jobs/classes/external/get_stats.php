@@ -69,6 +69,27 @@ class get_stats extends external_api {
             $sqlparams
         );
 
+        // Fetch all team gaps from active jobs
+        $sql_gaps = "SELECT jda.team_gap 
+                     FROM {local_aurahr_jd_analysis} jda
+                     JOIN {local_aurahr_jobs} j ON j.id = jda.jobid
+                     WHERE j.status = 'active'";
+        $gap_records = $DB->get_records_sql($sql_gaps);
+        $team_gaps = [];
+        foreach ($gap_records as $r) {
+            if (!empty($r->team_gap)) {
+                $skills = json_decode($r->team_gap, true);
+                if (is_array($skills)) {
+                    foreach ($skills as $s) {
+                        if (!empty($s)) {
+                            $team_gaps[] = trim($s);
+                        }
+                    }
+                }
+            }
+        }
+        $team_gaps = array_values(array_unique($team_gaps));
+
         return [
             'total_applications' => $total,
             'active_jobs'        => (int)$active_jobs,
@@ -78,6 +99,7 @@ class get_stats extends external_api {
             'avg_interview_score' => round((float)($avgs->avg_interview ?? 0), 2),
             'avg_overall_score'  => round((float)($avgs->avg_overall ?? 0), 2),
             'stage_counts'       => $stages,
+            'team_gaps'          => $team_gaps,
         ];
     }
 
@@ -95,6 +117,11 @@ class get_stats extends external_api {
                     'stage' => new external_value(PARAM_TEXT, 'Stage name'),
                     'count' => new external_value(PARAM_INT, 'Count'),
                 ])
+            ),
+            'team_gaps'           => new external_multiple_structure(
+                new external_value(PARAM_TEXT, 'Skill name'),
+                'Aggregated team gaps',
+                VALUE_OPTIONAL
             ),
         ]);
     }

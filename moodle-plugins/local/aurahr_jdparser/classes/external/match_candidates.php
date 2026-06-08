@@ -44,22 +44,26 @@ PROMPT;
     }
 
     public static function execute(int $jobid): array {
-        global $DB;
-
         $params = self::validate_parameters(self::execute_parameters(), ['jobid' => $jobid]);
 
         $context = \context_system::instance();
         require_capability('local/aurahr_jdparser:match', $context);
 
+        return self::match_all($params['jobid']);
+    }
+
+    public static function match_all(int $jobid): array {
+        global $DB, $CFG;
+
         // Get JD analysis.
-        $jd = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $params['jobid']]);
+        $jd = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $jobid]);
         if (!$jd) {
             throw new \moodle_exception('noanalysis', 'local_aurahr_jdparser', '', null,
                 'No JD analysis exists for this job. Run parse_jd first.');
         }
 
         // Get all applications for this job that haven't been scored yet (or rescore all).
-        $applications = $DB->get_records('local_aurahr_applications', ['jobid' => $params['jobid']]);
+        $applications = $DB->get_records('local_aurahr_applications', ['jobid' => $jobid]);
 
         // Allow long execution time and prevent abort on client disconnect.
         \core_php_time_limit::raise(300);
@@ -83,6 +87,16 @@ PROMPT;
             $user = $DB->get_record('user', ['id' => $app->userid], 'id, firstname, lastname, email, description');
             if (!$user) continue;
 
+            // Trigger socials analysis first.
+            try {
+                require_once($CFG->dirroot . '/local/aurahr_jobs/classes/external/analyze_socials.php');
+                \local_aurahr_jobs\external\analyze_socials::execute($app->id);
+                // Re-fetch application to get the updated social URLs and scores
+                $app = $DB->get_record('local_aurahr_applications', ['id' => $app->id]);
+            } catch (\Exception $e) {
+                debugging("Failed to analyze socials for candidate application {$app->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+
             $candidate_info = "Name: {$user->firstname} {$user->lastname}\n"
                             . "Email: {$user->email}\n"
                             . "Bio: " . ($user->description ?: 'No bio provided') . "\n"
@@ -101,17 +115,8 @@ PROMPT;
                 $app->timemodified = time();
 
                 // Recalculate overall score (weighted average of available scores).
-                $scores = array_filter([
-                    $app->jd_score,
-                    $app->academia_score ?? 0,
-                    $app->interview_score ?? 0,
-                ], fn($s) => $s > 0);
-                $app->overall_score = !empty($scores) ? array_sum($scores) / count($scores) : $app->jd_score;
-
-                // Auto-advance stage if still at 'applied'.
-                if ($app->stage === 'applied') {
-                    $app->stage = 'screened';
-                }
+                // Recalculate overall score.
+                $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
 
                 $DB->update_record('local_aurahr_applications', $app);
 
@@ -135,6 +140,69 @@ PROMPT;
             'matched' => count($results),
             'results' => $results,
         ];
+    }
+
+    public static function execute_for_application(int $appid): bool {
+        global $DB, $CFG;
+
+        $app = $DB->get_record('local_aurahr_applications', ['id' => $appid]);
+        if (!$app) return false;
+
+        // Trigger socials analysis.
+        try {
+            require_once($CFG->dirroot . '/local/aurahr_jobs/classes/external/analyze_socials.php');
+            \local_aurahr_jobs\external\analyze_socials::execute($app->id);
+            // Re-fetch application to get the updated social URLs and scores
+            $app = $DB->get_record('local_aurahr_applications', ['id' => $app->id]);
+        } catch (\Exception $e) {
+            debugging("Failed to analyze socials for application {$app->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+
+        $jd = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $app->jobid]);
+        if (!$jd) return false;
+
+        $user = $DB->get_record('user', ['id' => $app->userid], 'id, firstname, lastname, email, description');
+        if (!$user) return false;
+
+        $client = new ai_client();
+        $skills_context = json_encode([
+            'must_have'    => json_decode($jd->must_have, true),
+            'good_to_have' => json_decode($jd->good_to_have, true),
+            'future_proof' => json_decode($jd->future_proof, true),
+            'team_gap'     => json_decode($jd->team_gap, true),
+        ]);
+
+        $candidate_info = "Name: {$user->firstname} {$user->lastname}\n"
+                        . "Email: {$user->email}\n"
+                        . "Bio: " . ($user->description ?: 'No bio provided') . "\n"
+                        . "Resume Skills/Details: " . ($app->resume_skills ?: 'None provided');
+
+        try {
+            $response = $client->chat(
+                self::SYSTEM_PROMPT,
+                "Required Skills:\n{$skills_context}\n\nCandidate:\n{$candidate_info}"
+            );
+            $result = $client->parse_json_response($response);
+
+            $app->jd_score     = (float)($result['score'] ?? 0);
+            
+            // Append JD parser summary to existing AI summary
+            $jd_summary = $result['summary'] ?? '';
+            if (!empty($jd_summary)) {
+                $app->ai_summary = "JD PARSER ANALYSIS:\n" . $jd_summary . "\n\nSOCIALS ANALYSIS:\n" . ($app->ai_summary ?? 'Not analyzed yet.');
+            }
+            
+            $app->timemodified = time();
+
+            // Recalculate overall score.
+            $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
+
+            $DB->update_record('local_aurahr_applications', $app);
+            return true;
+        } catch (\Exception $e) {
+            debugging("Failed to match candidate {$user->email}: " . $e->getMessage(), DEBUG_DEVELOPER);
+            return false;
+        }
     }
 
     public static function execute_returns(): external_single_structure {

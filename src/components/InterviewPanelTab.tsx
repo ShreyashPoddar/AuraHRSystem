@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, MessageSquarePlus, Calendar, Plus, X, 
@@ -31,6 +32,7 @@ interface Question {
 }
 
 export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
+  const router = useRouter();
   // 1. Draft Questions State
   const [questions, setQuestions] = useState<Question[]>([
     { id: '1', text: 'Walk me through a time you had to optimize a slow-loading web application.' },
@@ -55,6 +57,34 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+
+  const handleFinalizeRound = async () => {
+    const decs = evalCandidates.filter(c => c.status !== 'pending');
+    if (decs.length === 0) {
+      alert('Please select or reject at least one candidate before finalizing.');
+      return;
+    }
+    const confirm = window.confirm(`Are you sure you want to finalize the decisions for ${decs.length} candidate(s)? This will update their recruitment stage and notify them.`);
+    if (!confirm) return;
+
+    setFinalizing(true);
+    try {
+      await Promise.all(decs.map(c => 
+        moodleCall('local_aurahr_jobs_update_stage', {
+          applicationid: c.id,
+          stage: c.status
+        })
+      ));
+      alert('Interview decisions finalized successfully!');
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to finalize candidate stages.');
+    } finally {
+      setFinalizing(false);
+    }
+  };
 
   async function openDetail(appId: number) {
     setDetailLoading(true);
@@ -68,20 +98,41 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
     }
   }
 
+  const isInterviewLive = (scheduledAt: number, durationMins: number, status: string) => {
+    if (status !== 'scheduled' && status !== 'in_progress') return false;
+    const now = Math.floor(Date.now() / 1000);
+    const startWindow = scheduledAt - 600; // 10 mins before
+    const endWindow = scheduledAt + (durationMins * 60);
+    return now >= startWindow && now <= endWindow;
+  };
+
   useEffect(() => {
     async function fetchCandidates() {
       setLoadingData(true);
       try {
-        const res = await moodleCall<{applications: any[]}>('local_aurahr_jobs_list_applications', { jobid: jobId, stage: 'interview' });
-        const apps = res.applications || [];
+        const [appsRes, interviewsRes] = await Promise.all([
+          moodleCall<{applications: any[]}>('local_aurahr_jobs_list_applications', { jobid: jobId, stage: 'interview' }),
+          moodleCall<{interviews: any[]}>('local_aurahr_interview_list', { jobid: jobId })
+        ]);
+        
+        const apps = appsRes.applications || [];
+        const interviews = interviewsRes.interviews || [];
 
-        // Mock scheduling times for the real candidates (since we don't have a calendar DB yet)
-        const scheduled = apps.map((app, i) => ({
-          id: app.id,
-          name: `${app.firstname} ${app.lastname}`,
-          date: i === 0 ? 'Today, 2:00 PM' : 'Tomorrow, 10:00 AM',
+        // Sort scheduled interviews by time
+        const sortedInterviews = [...interviews].sort((a, b) => a.scheduled_at - b.scheduled_at);
+        
+        const scheduled = sortedInterviews.map((inv) => ({
+          id: inv.id,
+          applicationId: inv.applicationid,
+          name: inv.candidate_name,
+          date: new Date(inv.scheduled_at * 1000).toLocaleString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
           role: 'Candidate',
-          live: i === 0,
+          live: isInterviewLive(inv.scheduled_at, inv.duration_mins, inv.status),
         }));
         setScheduledInterviews(scheduled);
 
@@ -90,8 +141,8 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
           name: `${app.firstname} ${app.lastname}`,
           interviewScore: app.interview_score,
           overallScore: app.overall_score,
-          malpractice: app.malpractice === 1,
-          status: 'pending' // Default UI state before final decision
+          malpractice: (app.malpractice || 0) > 0,
+          status: app.stage === 'selected' ? 'selected' : (app.stage === 'rejected' ? 'rejected' : 'pending')
         }));
         setEvalCandidates(evals);
       } catch (err) {
@@ -104,11 +155,8 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
   }, [jobId]);
 
   const updateCandidateStatus = async (id: number, status: string) => {
-    // Update UI optimistically
+    // Update UI status immediately
     setEvalCandidates(evalCandidates.map(c => c.id === id ? { ...c, status } : c));
-    
-    // In a full implementation, you would also push the stage update to the backend:
-    // await moodleCall('local_aurahr_jobs_update_stage', { applicationid: id, stage: status });
   };
 
   return (
@@ -189,7 +237,7 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
             {scheduledInterviews.map((interview) => (
               <div 
                 key={interview.id} 
-                onClick={() => openDetail(interview.id)}
+                onClick={() => openDetail(interview.applicationId)}
                 className="min-w-[280px] bg-white border border-ink/10 p-5 rounded-2xl snap-start flex flex-col hover:shadow-md transition-all cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-3">
@@ -211,7 +259,7 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.location.href = `/org/interview/${interview.id}`;
+                    router.push(`/org/interview/${interview.applicationId}`);
                   }}
                   className={`mt-auto w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
                   interview.live 
@@ -341,8 +389,13 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
         </div>
         
         <div className="p-6 bg-warm-sand/20 border-t border-ink/10 flex justify-end">
-          <button className="btn-primary py-2.5 px-8 shadow-sm hover:shadow-md transition-shadow">
-            Finalise Round
+          <button 
+            onClick={handleFinalizeRound}
+            disabled={finalizing || evalCandidates.filter(c => c.status !== 'pending').length === 0}
+            className="btn-primary py-2.5 px-8 shadow-sm hover:shadow-md transition-shadow flex items-center gap-2 disabled:opacity-50"
+          >
+            {finalizing && <Loader2 size={16} className="animate-spin" />}
+            {finalizing ? 'Finalising...' : 'Finalise Round'}
           </button>
         </div>
       </div>

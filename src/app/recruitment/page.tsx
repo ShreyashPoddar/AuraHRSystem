@@ -9,7 +9,7 @@ export default function RecruitmentPage() {
       <nav className="fixed top-0 w-full z-50 bg-[#EDE8DF]/90 backdrop-blur-md border-b border-[#D8D2C8]">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="font-serif text-2xl font-bold text-[#1A1814] tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
-            Nexus<span className="text-[#B8972E]">HR</span>
+            aur<span className="text-[#B8972E]">hr</span>
           </Link>
           <div className="hidden md:flex items-center space-x-1 bg-[#F5F1EB] rounded-full px-2 py-1 border border-[#D8D2C8]">
             {['Features', 'Recruitment', 'Testimonials', 'Pricing'].map((item) => (
@@ -321,7 +321,7 @@ export default function RecruitmentPage() {
       <footer className="py-12 px-6 bg-[#F5F1EB]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-2xl font-bold text-[#1A1814]" style={{ fontFamily: 'Georgia, serif' }}>
-            Nexus<span className="text-[#B8972E]">HR</span>
+            aur<span className="text-[#B8972E]">hr</span>
           </div>
           <div className="flex space-x-6 text-sm text-[#9A9486] font-sans">
             <a href="#" className="hover:text-[#1A1814]">Terms</a>
@@ -329,7 +329,7 @@ export default function RecruitmentPage() {
             <a href="#" className="hover:text-[#1A1814]">Contact</a>
           </div>
           <div className="text-xs font-mono text-[#9A9486]">
-            © 2026 NexusHR Global.
+            © 2026 aurhr Global.
           </div>
         </div>
       </footer>

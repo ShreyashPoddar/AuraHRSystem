@@ -43,6 +43,41 @@ class update_candidate_urls extends external_api {
             $USER->id,
         ]);
 
+        // Also update candidate user preferences for settings parity.
+        $count = get_user_preferences('aurahr_candidate_settings_chunks', 0, $USER->id);
+        $json = '';
+        if ($count > 0) {
+            for ($i = 0; $i < $count; $i++) {
+                $json .= get_user_preferences('aurahr_candidate_settings_' . $i, '', $USER->id);
+            }
+        } else {
+            $json = get_user_preferences('aurahr_candidate_settings', '{}', $USER->id);
+        }
+        $prefs = json_decode($json, true) ?: [];
+        $prefs['github'] = $params['github_url'];
+        $prefs['linkedin'] = $params['linkedin_url'];
+        $prefs['leetcode'] = $params['leetcode_url'];
+
+        $new_json = json_encode($prefs);
+        $chunks = str_split($new_json, 1300);
+        set_user_preference('aurahr_candidate_settings_chunks', count($chunks), $USER->id);
+        foreach ($chunks as $index => $chunk) {
+            set_user_preference('aurahr_candidate_settings_' . $index, $chunk, $USER->id);
+        }
+
+        // Trigger AI Socials Analysis for each application of the candidate.
+        $apps = $DB->get_records('local_aurahr_applications', ['userid' => $USER->id]);
+        if (!empty($apps)) {
+            require_once(__DIR__ . '/analyze_socials.php');
+            foreach ($apps as $app) {
+                try {
+                    \local_aurahr_jobs\external\analyze_socials::execute($app->id);
+                } catch (\Exception $e) {
+                    debugging('Failed to analyze socials for application ' . $app->id . ': ' . $e->getMessage(), DEBUG_DEVELOPER);
+                }
+            }
+        }
+
         return ['status' => 'success'];
     }
 

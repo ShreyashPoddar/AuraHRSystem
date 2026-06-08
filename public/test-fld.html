@@ -1,0 +1,19 @@
+<html>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+    <script>
+      window.onload = async () => {
+        try {
+          await tf.ready();
+          const fld = window.faceLandmarksDetection;
+          const modelName = fld.SupportedModels.MediaPipeFaceMesh;
+          const model = await fld.createDetector(modelName, { runtime: 'tfjs', refineLandmarks: true });
+          console.log('SUCCESS');
+        } catch (e) {
+          console.error('ERROR', e);
+        }
+      };
+    </script>
+  </body>
+</html>

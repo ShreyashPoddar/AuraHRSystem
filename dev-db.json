@@ -3,7 +3,7 @@
     {
       "id": "1",
       "name": "Sarah Chen",
-      "email": "sarah@nexushr.com",
+      "email": "sarah@aurhr.com",
       "role": "Engineering Director",
       "location": "San Francisco, CA",
       "salary": 4200000,
@@ -20,7 +20,7 @@
     {
       "id": "2",
       "name": "Rahul Verma",
-      "email": "rahul@nexushr.com",
+      "email": "rahul@aurhr.com",
       "role": "Product Manager",
       "location": "Bengaluru, KA",
       "salary": 2800000,
@@ -37,7 +37,7 @@
     {
       "id": "3",
       "name": "Anita Desai",
-      "email": "anita@nexushr.com",
+      "email": "anita@aurhr.com",
       "role": "HR Business Partner",
       "location": "Mumbai, MH",
       "salary": 1800000,
@@ -54,7 +54,7 @@
     {
       "id": "4",
       "name": "David Kim",
-      "email": "david@nexushr.com",
+      "email": "david@aurhr.com",
       "role": "Backend Engineer",
       "location": "Hyderabad, TS",
       "salary": 2200000,
@@ -71,7 +71,7 @@
     {
       "id": "5",
       "name": "Sandeep Varma",
-      "email": "sandeep.varma@nexushr.com",
+      "email": "sandeep.varma@aurhr.com",
       "role": "Senior VLSI Engineer",
       "location": "Bengaluru, KA",
       "salary": 3600000,
@@ -88,7 +88,7 @@
     {
       "id": "6",
       "name": "Megha Iyer",
-      "email": "megha.iyer@nexushr.com",
+      "email": "megha.iyer@aurhr.com",
       "role": "HR Compliance Specialist",
       "location": "Chennai, TN",
       "salary": 1600000,
@@ -105,7 +105,7 @@
     {
       "id": "7",
       "name": "Karan Bir Singh",
-      "email": "karan.singh@nexushr.com",
+      "email": "karan.singh@aurhr.com",
       "role": "Digital Logic Designer",
       "location": "Chandigarh, PB",
       "salary": 1400000,
@@ -122,7 +122,7 @@
     {
       "id": "8",
       "name": "Tanvi Gupta",
-      "email": "tanvi.gupta@nexushr.com",
+      "email": "tanvi.gupta@aurhr.com",
       "role": "Systems Analyst",
       "location": "New Delhi, DL",
       "salary": 2100000,
@@ -139,7 +139,7 @@
     {
       "id": "9",
       "name": "Amitabh Das",
-      "email": "amitabh.das@nexushr.com",
+      "email": "amitabh.das@aurhr.com",
       "role": "Project Lead — Infrastructure",
       "location": "Hyderabad, TS",
       "salary": 4500000,
@@ -1060,7 +1060,7 @@
   "settings": {
     "gstin": "",
     "tan": "",
-    "companyName": "NexusHR Global",
+    "companyName": "aurhr Global",
     "defaultState": "Maharashtra"
   }
 }

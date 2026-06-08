@@ -9,7 +9,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_aurahr_jobs';       // Frankenstyle name: local_aurahr_jobs
-$plugin->version   = 2026052212;                // YYYYMMDDXX
+$plugin->version   = 2026060400;                // YYYYMMDDXX
 $plugin->requires  = 2024042200;                // Minimum Moodle 4.4
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->release   = '1.0.0';

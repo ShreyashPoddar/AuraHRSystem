@@ -32,6 +32,7 @@ interface Job {
     future_proof: string;
     team_gap: string;
     pass_count: number;
+    is_finalized?: boolean;
   } | null;
 }
 
@@ -140,7 +141,7 @@ export default function VacancyDetailPage() {
   // Calculate breakdown stats
   const getStageCount = (stage: string) => job.stage_counts.find(s => s.stage === stage)?.count || 0;
   const appliedCount = job.application_count;
-  const academiaQualified = getStageCount('academia') + getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
+  const academiaQualified = getStageCount('screened') + getStageCount('academia') + getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
   const interviewQualified = getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
   const interviewsPending = getStageCount('interview');
   const selectedCount = getStageCount('selected');
@@ -193,17 +194,19 @@ export default function VacancyDetailPage() {
         <div className="pt-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-ink/40 uppercase tracking-wider">Job Description</h3>
-            {!editingDesc ? (
-              <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
-                Edit Description
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
-                <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
-                  {savingDesc ? 'Saving...' : 'Save'}
+            {!job.jd_analysis?.is_finalized && (
+              !editingDesc ? (
+                <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
+                  Edit Description
                 </button>
-              </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
+                  <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
+                    {savingDesc ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              )
             )}
           </div>
           
@@ -250,9 +253,16 @@ export default function VacancyDetailPage() {
                 <h4 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
                   <span>Configuration</span>
                   {hasAnalysis && job.jd_analysis ? (
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-sage bg-sage/10 px-2 py-1 rounded">
-                      AI Suggested: {job.jd_analysis.pass_count}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {job.jd_analysis.is_finalized && (
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                          ✅ Finalized
+                        </span>
+                      )}
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-sage bg-sage/10 px-2 py-1 rounded">
+                        AI Suggested: {job.jd_analysis.pass_count}
+                      </span>
+                    </div>
                   ) : (
                     <span className="text-[10px] uppercase tracking-wider font-bold text-ink/40 bg-ink/5 px-2 py-1 rounded">
                       Run JD Parser for AI Suggestion
@@ -269,12 +279,14 @@ export default function VacancyDetailPage() {
                       value={passCount}
                       onChange={(e) => setPassCount(e.target.value ? Number(e.target.value) : '')}
                       placeholder={hasAnalysis && job.jd_analysis ? String(job.jd_analysis.pass_count) : "Enter a target pass count"}
-                      className="w-full bg-warm-sand/30 border border-ink/10 rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-sage/50"
+                      disabled={!!job.jd_analysis?.is_finalized}
+                      className="w-full bg-warm-sand/30 border border-ink/10 rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-sage/50 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                   <div className="flex gap-2">
                     <button 
-                      className="bg-sage text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-sage/90 transition-all shadow-sm flex items-center gap-2"
+                      disabled={!!job.jd_analysis?.is_finalized}
+                      className="bg-sage text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-sage/90 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
                         if (!passCount) return;
                         try {
@@ -291,7 +303,8 @@ export default function VacancyDetailPage() {
                       Save Config
                     </button>
                     <button 
-                      className="bg-purple-600 text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-purple-700 transition-all shadow-sm flex items-center gap-2"
+                      disabled={!hasAnalysis || !!job.jd_analysis?.is_finalized}
+                      className="bg-purple-600 text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-purple-700 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
                         if (!passCount) {
                           alert("Please specify a pass count first and save configuration.");
@@ -311,7 +324,7 @@ export default function VacancyDetailPage() {
                       }}
                     >
                       <Sparkles size={16} />
-                      FINAL
+                      {job.jd_analysis?.is_finalized ? 'FINALIZED' : 'FINAL'}
                     </button>
                   </div>
                 </div>
@@ -319,11 +332,11 @@ export default function VacancyDetailPage() {
 
               {/* JD Parser Action Card */}
               <motion.button
-                whileHover={{ scale: 1.01, y: -2 }}
-                whileTap={{ scale: 0.99 }}
+                whileHover={job.jd_analysis?.is_finalized ? {} : { scale: 1.01, y: -2 }}
+                whileTap={job.jd_analysis?.is_finalized ? {} : { scale: 0.99 }}
                 onClick={runJDParser}
-                disabled={parsing}
-                className="w-full sm:w-80 bento-card p-5 text-left hover:shadow-lg hover:border-sage/30 transition-all group"
+                disabled={parsing || !!job.jd_analysis?.is_finalized}
+                className="w-full sm:w-80 bento-card p-5 text-left hover:shadow-lg hover:border-sage/30 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="p-2 rounded-xl bg-sage/10 text-sage">
@@ -334,7 +347,9 @@ export default function VacancyDetailPage() {
                   </span>
                 </div>
                 <p className="text-xs text-ink/40">
-                  AI-powered analysis of the job description to extract skill requirements.
+                  {job.jd_analysis?.is_finalized 
+                    ? 'JD Round has been finalized. You cannot re-run the parser.' 
+                    : 'AI-powered analysis of the job description to extract skill requirements.'}
                 </p>
               </motion.button>
 
@@ -424,6 +439,7 @@ function SkillBox({
 }: {
   title: string; skills: string[]; color: string; badgeColor: string; icon: React.ReactNode;
 }) {
+  const isTeamGap = title.toLowerCase().includes('team gap');
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -433,18 +449,24 @@ function SkillBox({
       <div className="flex items-center gap-2 mb-3">
         <span className={`p-1.5 rounded-lg ${badgeColor}`}>{icon}</span>
         <h4 className="text-sm font-semibold text-ink">{title}</h4>
-        <span className="text-[10px] font-mono text-ink/30 ml-auto">{skills.length}</span>
+        {!isTeamGap && <span className="text-[10px] font-mono text-ink/30 ml-auto">{skills.length}</span>}
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {skills.map((skill, i) => (
-          <span
-            key={i}
-            className={`text-xs px-2.5 py-1 rounded-lg font-medium ${badgeColor}`}
-          >
-            {skill}
-          </span>
-        ))}
-      </div>
+      {isTeamGap ? (
+        <div className="text-xs text-ink/50 italic py-2">
+          Feature coming soon: Team skill gap matching and analytics will be available in a future update.
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {skills.map((skill, i) => (
+            <span
+              key={i}
+              className={`text-xs px-2.5 py-1 rounded-lg font-medium ${badgeColor}`}
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
