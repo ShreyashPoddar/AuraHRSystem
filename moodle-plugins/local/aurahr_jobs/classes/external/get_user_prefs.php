@@ -19,7 +19,16 @@ class get_user_prefs extends external_api {
         $context = \context_user::instance($USER->id);
         self::validate_context($context);
 
-        $json = get_user_preferences('aurahr_candidate_settings', '{}', $USER->id);
+        $count = get_user_preferences('aurahr_candidate_settings_chunks', 0, $USER->id);
+        $json = '';
+        if ($count > 0) {
+            for ($i = 0; $i < $count; $i++) {
+                $json .= get_user_preferences('aurahr_candidate_settings_' . $i, '', $USER->id);
+            }
+        } else {
+            // Fallback for legacy data before chunking was implemented
+            $json = get_user_preferences('aurahr_candidate_settings', '{}', $USER->id);
+        }
 
         return [
             'status' => 'success',

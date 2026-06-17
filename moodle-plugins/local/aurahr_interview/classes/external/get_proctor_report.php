@@ -27,7 +27,25 @@ class get_proctor_report extends external_api {
         ]);
 
         $context = \context_system::instance();
-        require_capability('local/aurahr_interview:viewproctor', $context);
+        $hascap = has_capability('local/aurahr_interview:viewproctor', $context);
+
+        $isowner = false;
+        global $USER;
+        if ($params['sessiontype'] === 'interview') {
+            $interview = $DB->get_record('local_aurahr_interviews', ['id' => $params['sessionid']], '*', IGNORE_MISSING);
+            if ($interview && $interview->candidateid == $USER->id) {
+                $isowner = true;
+            }
+        } else if ($params['sessiontype'] === 'academia') {
+            $enrol = $DB->get_record('local_aurahr_assess_enrol', ['id' => $params['sessionid']], '*', IGNORE_MISSING);
+            if ($enrol && $enrol->userid == $USER->id) {
+                $isowner = true;
+            }
+        }
+
+        if (!$hascap && !$isowner) {
+            require_capability('local/aurahr_interview:viewproctor', $context);
+        }
 
         $records = $DB->get_records('local_aurahr_proctor_events', [
             'sessiontype' => $params['sessiontype'],

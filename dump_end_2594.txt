@@ -1,0 +1,74 @@
+Created At: 2026-06-03T10:23:40Z
+Completed At: 2026-06-03T10:23:40Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1016
+Total Bytes: 45727
+Showing lines 800 to 1000
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+800:             })()}
+801: 
+802:             <div className="flex gap-3">
+803:               <button
+804:                 onClick={rejectCamera}
+805:                 className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 border-ink/10 text-ink/60 hover:bg-ink/5 transition-colors"
+806:               >
+807:                 Cancel
+808:               </button>
+809:               <button
+810:                 onClick={confirmCamera}
+811:                 disabled={!(camBrightness !== null && camBrightness > 0)}
+812:                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors shadow-sm
+813:                   ${(camBrightness !== null && camBrightness > 0)
+814:                     ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+815:                     : 'bg-ink/10 text-ink/30 cursor-not-allowed'}`}
+816:               >
+817:                 {camBrightness === null   ? 'Checking…' :
+818:                  camBrightness > 0        ? 'Confirm Camera ✓' :
+819:                                             'Open Shutter to Continue'}
+820:               </button>
+821:             </div>
+822:           </motion.div>
+823:         </div>
+824:       )}
+825:       {/* ── Microphone Preview Modal ───────────────────────────────────────── */}
+826:       {micStream && micCheck.status === 'checking' && (
+827:         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+828:           <motion.div
+
+<truncated 7122 bytes>
+ </div>
+967:                       <span className={`text-base ${answers[currentQ] === opt ? 'text-blue-900 font-medium' : 'text-ink/80'}`}>
+968:                         {opt}
+969:                       </span>
+970:                     </div>
+971:                   </button>
+972:                 ))
+973:               ) : (
+974:                 <textarea
+975:                   value={answers[currentQ] || ''}
+976:                   onChange={e => setAnswers(prev => ({ ...prev, [currentQ]: e.target.value }))}
+977:                   placeholder="Type your answer here…"
+978:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+979:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+980:                 />
+981:               )}
+982:             </div>
+983: 
+984:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+985:               <button
+986:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+987:                 disabled={currentQ === 0}
+988:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+989:               >
+990:                 Previous
+991:               </button>
+992: 
+993:               {isLast ? (
+994:                 <button onClick={handleSubmit} disabled={submitting}
+995:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+996:                 >
+997:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+998:                   Submit Assessment
+999:                 </button>
+1000:               ) : (
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

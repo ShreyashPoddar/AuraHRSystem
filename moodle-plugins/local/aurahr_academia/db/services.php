@@ -49,6 +49,19 @@ $functions = [
         'type'         => 'write',
         'ajax'         => true,
     ],
+    'local_aurahr_academia_log_event' => [
+        'classname'    => 'local_aurahr_academia\external\log_event',
+        'description'  => 'Log a proctoring violation event',
+        'type'         => 'write',
+        'ajax'         => true,
+    ],
+    'local_aurahr_academia_finalize_assessment' => [
+        'classname'    => 'local_aurahr_academia\external\finalize_assessment',
+        'description'  => 'Finalize assessment round, promote top N candidates to interview and reject the rest',
+        'type'         => 'write',
+        'ajax'         => true,
+        'capabilities' => 'local/aurahr_academia:manage',
+    ],
 ];
 
 $services = [

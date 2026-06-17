@@ -23,7 +23,11 @@ class update_user_prefs extends external_api {
         
         $params = self::validate_parameters(self::execute_parameters(), ['data' => $data]);
 
-        set_user_preference('aurahr_candidate_settings', $params['data'], $USER->id);
+        $chunks = str_split($params['data'], 1300);
+        set_user_preference('aurahr_candidate_settings_chunks', count($chunks), $USER->id);
+        foreach ($chunks as $index => $chunk) {
+            set_user_preference('aurahr_candidate_settings_' . $index, $chunk, $USER->id);
+        }
 
         return [
             'status' => 'success'

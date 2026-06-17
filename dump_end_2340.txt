@@ -1,0 +1,92 @@
+Created At: 2026-06-03T09:52:32Z
+Completed At: 2026-06-03T09:52:32Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 933
+Total Bytes: 41560
+Showing lines 750 to 933
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+750:                 className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 border-ink/10 text-ink/60 hover:bg-ink/5 transition-colors"
+751:               >
+752:                 Cancel
+753:               </button>
+754:               <button
+755:                 onClick={confirmMic}
+756:                 disabled={!micPass}
+757:                 className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors shadow-sm
+758:                   ${micPass
+759:                     ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+760:                     : 'bg-ink/10 text-ink/30 cursor-not-allowed'}`}
+761:               >
+762:                 {micPass ? 'Confirm Mic ✓' : 'Speak to Continue'}
+763:               </button>
+764:             </div>
+765:           </motion.div>
+766:         </div>
+767:       )}
+768:     </div>
+769:   );
+770: 
+771:   // Timer state for the assessment
+772:   const [timeLeft, setTimeLeft] = useState<number>(0);
+773: 
+774:   // Helper to format seconds -> mm:ss
+775:   const formatTime = (seconds: number) => {
+776:     const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+777:     const s = String(seconds % 60).padStart(2, '0');
+778:     return `${m}:${s}`;
+779:   };
+780: 
+781:   // Initialize timer when assessment data is loaded
+782:   useEffect(() => {
+783:     if (assessment?.time_limit_seconds) {
+784:       setTimeLeft(assessment.time_limit_seconds);
+785:     } else {
+786:       // default 30 minutes if not specified
+787:       setTimeLeft(30 * 60);
+788:     }
+789:   }, [assessment]);
+790: 
+791:   // Countdo
+<truncated 5104 bytes>
+rget.value }))}
+894:                   placeholder="Type your answer here…"
+895:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+896:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+897:                 />
+898:               )}
+899:             </div>
+900: 
+901:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+902:               <button
+903:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+904:                 disabled={currentQ === 0}
+905:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+906:               >
+907:                 Previous
+908:               </button>
+909: 
+910:               {isLast ? (
+911:                 <button onClick={handleSubmit} disabled={submitting}
+912:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+913:                 >
+914:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+915:                   Submit Assessment
+916:                 </button>
+917:               ) : (
+918:                 <button
+919:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+920:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+921:                 >
+922:                   Next
+923:                 </button>
+924:               )}
+925:             </div>
+926:           </div>
+927:         </div>
+928:       </div>
+929:     </div>
+930:   );
+931: }
+932: 
+933: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

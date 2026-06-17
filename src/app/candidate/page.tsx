@@ -20,6 +20,14 @@ interface Application {
   jd_score: number;
   malpractice: number;
   timecreated: number;
+  job_is_finalized?: number;
+  assessment_id?: number;
+  assessment_title?: string;
+  assessment_start_time?: number;
+  assessment_end_time?: number;
+  assessment_status?: string;
+  academia_score?: number | null;
+  interview_score?: number | null;
 }
 
 const stageColors: Record<string, string> = {
@@ -50,17 +58,27 @@ const fadeUp = {
 export default function CandidateDashboard() {
   const { user } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
+  const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+
     async function load() {
       try {
-        // This would need a custom "my applications" endpoint — using a placeholder.
-        const res = await moodleCall<{ applications: Application[] }>(
-          'local_aurahr_jobs_list_applications',
-          { jobid: 0 } // 0 = all jobs, filtered by current user on server side
-        );
-        setApplications(res.applications || []);
+        const [appRes, interviewRes] = await Promise.all([
+          moodleCall<{ applications: Application[] }>(
+            'local_aurahr_jobs_list_applications',
+            { jobid: 0 } // 0 = all jobs, filtered by current user on server side
+          ),
+          moodleCall<{ interviews: any[] }>(
+            'local_aurahr_interview_list',
+            { candidateid: userId }
+          )
+        ]);
+        setApplications(appRes.applications || []);
+        setInterviews(interviewRes.interviews || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -68,7 +86,7 @@ export default function CandidateDashboard() {
       }
     }
     load();
-  }, []);
+  }, [user]);
 
   const activeApps = applications.filter(a => !['rejected', 'selected'].includes(a.stage));
   const completedApps = applications.filter(a => ['rejected', 'selected'].includes(a.stage));
@@ -172,14 +190,20 @@ export default function CandidateDashboard() {
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-3">
                       {app.malpractice === 1 && <span title="Malpractice flagged"><AlertTriangle size={14} className="text-rust" /></span>}
-                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${stageColors[app.stage]}`}>
-                        {stageLabels[app.stage] || app.stage}
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
+                        !app.job_is_finalized 
+                          ? 'bg-amber-500/15 text-amber-700' 
+                          : stageColors[app.stage]
+                      }`}>
+                        {!app.job_is_finalized 
+                          ? 'Decision Pending' 
+                          : (stageLabels[app.stage] || app.stage)}
                       </span>
                     </div>
-                    {app.stage === 'screened' && (
+                    {!!app.job_is_finalized && app.stage === 'screened' && (
                        <span className="text-[10px] font-bold text-sage bg-sage/10 px-2 py-0.5 rounded">Shortlisted! Awaiting test schedule.</span>
                     )}
-                    {app.stage === 'academia' && (
+                    {!!app.job_is_finalized && app.stage === 'academia' && (
                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded flex items-center gap-1">
                          <AlertTriangle size={10} /> Test Scheduled! Check below.
                        </span>
@@ -201,21 +225,53 @@ export default function CandidateDashboard() {
             Tests Scheduled
           </h2>
           <div className="space-y-3">
-            {applications.filter(a => a.stage === 'academia').length === 0 ? (
-              <p className="text-xs text-ink/40 italic">No tests scheduled at the moment.</p>
-            ) : (
-              applications.filter(a => a.stage === 'academia').map((app) => (
-                <div key={app.id} className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-ink">{app.job_title} - Academia</p>
+            {(() => {
+              const scheduledTests = applications.filter(a => 
+                a.stage === 'academia' && 
+                (a.academia_score === null || a.academia_score === undefined) &&
+                !!a.job_is_finalized &&
+                !!a.assessment_id && 
+                a.assessment_start_time !== undefined &&
+                a.assessment_start_time > 0 &&
+                ['scheduled', 'active', 'ended'].includes(a.assessment_status || '')
+              );
+
+              if (scheduledTests.length === 0) {
+                return <p className="text-xs text-ink/40 italic">No tests scheduled at the moment.</p>;
+              }
+
+              const now = Math.floor(Date.now() / 1000);
+              return scheduledTests.map((app) => {
+                if (app.assessment_start_time === undefined || app.assessment_end_time === undefined) return null;
+                const isLive = !!(now >= app.assessment_start_time && now <= app.assessment_end_time);
+                
+                const startStr = new Date(app.assessment_start_time * 1000).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+                const endStr = new Date(app.assessment_end_time * 1000).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+
+                return (
+                  <div key={app.id} className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-ink">{app.job_title} - Academia</p>
+                    </div>
+                    <p className="text-xs text-ink/50 mb-1">Starts: <span className="font-medium text-ink">{startStr}</span></p>
+                    <p className="text-xs text-ink/50 mb-3">Ends: <span className="font-medium text-ink">{endStr}</span></p>
+                    {isLive ? (
+                      <Link href={`/candidate/test/${app.jobid}`} className="flex items-center justify-center gap-2 w-full py-2 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm">
+                        <Play size={14} /> START TEST
+                      </Link>
+                    ) : (
+                      <button disabled className="flex items-center justify-center gap-2 w-full py-2 bg-ink/10 text-ink/40 rounded-lg text-xs font-bold cursor-not-allowed">
+                        <Play size={14} /> START TEST (Not Live)
+                      </button>
+                    )}
                   </div>
-                  <p className="text-xs text-ink/50 mb-3">Check test portal for timings</p>
-                  <Link href={`/candidate/test/${app.jobid}`} className="flex items-center justify-center gap-2 w-full py-2 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors shadow-sm">
-                    <Play size={14} /> START TEST
-                  </Link>
-                </div>
-              ))
-            )}
+                );
+              });
+            })()}
           </div>
         </div>
 
@@ -226,16 +282,39 @@ export default function CandidateDashboard() {
             Interviews Scheduled
           </h2>
           <div className="space-y-3">
-            {/* Dummy interview data for UI display */}
-            <div className="p-4 rounded-xl bg-gold/5 border border-gold/10">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-ink">Product Manager - Final Round</p>
-              </div>
-              <p className="text-xs text-ink/50 mb-3">Tomorrow, 10:00 AM - 11:00 AM</p>
-              <Link href="/candidate/interview/1" className="flex items-center justify-center gap-2 w-full py-2 bg-ink/5 text-ink/50 rounded-lg text-xs font-bold cursor-not-allowed">
-                <Video size={14} /> JOIN NOW
-              </Link>
-            </div>
+            {(() => {
+              const activeInterviews = interviews.filter(inv => inv.status === 'scheduled');
+              if (activeInterviews.length === 0) {
+                return <p className="text-xs text-ink/40 italic">No interviews scheduled at the moment.</p>;
+              }
+              const now = Math.floor(Date.now() / 1000);
+              return activeInterviews.map((interview) => {
+                const isLive = now >= interview.scheduled_at && now <= (interview.scheduled_at + interview.duration_mins * 60);
+                const timeStr = new Date(interview.scheduled_at * 1000).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+                return (
+                  <div key={interview.id} className="p-4 rounded-xl bg-gold/5 border border-gold/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-ink">{interview.job_title || 'Technical Interview'}</p>
+                    </div>
+                    <p className="text-xs text-ink/50 mb-1">{timeStr} ({interview.duration_mins} mins)</p>
+                    {interview.interviewer_name && (
+                      <p className="text-[10px] text-ink/40 mb-3">Interviewer: {interview.interviewer_name}</p>
+                    )}
+                    {isLive ? (
+                      <Link href={`/candidate/interview/${interview.applicationid}`} className="flex items-center justify-center gap-2 w-full py-2 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm">
+                        <Video size={14} /> JOIN NOW
+                      </Link>
+                    ) : (
+                      <button disabled className="flex items-center justify-center gap-2 w-full py-2 bg-ink/10 text-ink/40 rounded-lg text-xs font-bold cursor-not-allowed">
+                        <Video size={14} /> JOIN NOW (Not Live)
+                      </button>
+                    )}
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </motion.div>

@@ -39,7 +39,10 @@ class list_applications extends external_api {
         ]);
 
         $context = \context_system::instance();
-        require_capability('local/aurahr_jobs:viewapplications', $context);
+        
+        if (!has_capability('local/aurahr_jobs:viewapplications', $context)) {
+            require_capability('local/aurahr_jobs:viewownapp', $context);
+        }
 
         // Whitelist sortable fields to prevent SQL injection.
         $allowed_sorts = [
@@ -69,6 +72,12 @@ class list_applications extends external_api {
             $sqlparams['search2'] = '%' . $params['search'] . '%';
             $sqlparams['search3'] = '%' . $params['search'] . '%';
         }
+        
+        global $USER;
+        if (!has_capability('local/aurahr_jobs:viewapplications', $context)) {
+            $conditions[] = 'a.userid = :ownuserid';
+            $sqlparams['ownuserid'] = $USER->id;
+        }
 
         $where = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
@@ -80,9 +89,19 @@ class list_applications extends external_api {
         $total = $DB->count_records_sql($countsql, $sqlparams);
 
         // Fetch records.
-        $sql = "SELECT a.*, u.firstname, u.lastname, u.email, u.picture, u.imagealt
+        $sql = "SELECT a.*, u.firstname, u.lastname, u.email, u.picture, u.imagealt,
+                       j.title AS job_title, j.department AS job_department,
+                       COALESCE(jd.is_finalized, 0) as job_is_finalized,
+                       asmt.id as assessment_id,
+                       asmt.title as assessment_title,
+                       asmt.start_time as assessment_start_time,
+                       asmt.end_time as assessment_end_time,
+                       asmt.status as assessment_status
                 FROM {local_aurahr_applications} a
                 JOIN {user} u ON u.id = a.userid
+                JOIN {local_aurahr_jobs} j ON j.id = a.jobid
+                LEFT JOIN {local_aurahr_jd_analysis} jd ON jd.jobid = a.jobid
+                LEFT JOIN {local_aurahr_assessments} asmt ON asmt.jobid = a.jobid
                 $where
                 ORDER BY $sortfield $sortdir";
 
@@ -96,6 +115,8 @@ class list_applications extends external_api {
                 'id'                => (int)$r->id,
                 'userid'            => (int)$r->userid,
                 'jobid'             => (int)$r->jobid,
+                'job_title'         => $r->job_title,
+                'job_department'    => $r->job_department,
                 'firstname'         => $r->firstname,
                 'lastname'          => $r->lastname,
                 'email'             => $r->email,
@@ -104,12 +125,18 @@ class list_applications extends external_api {
                 'academia_score'    => (float)($r->academia_score ?? 0),
                 'interview_score'   => (float)($r->interview_score ?? 0),
                 'overall_score'     => (float)($r->overall_score ?? 0),
-                'github_score'      => (float)($r->github_score ?? 0),
-                'linkedin_score'    => (float)($r->linkedin_score ?? 0),
+                'github_score'      => $r->github_score !== null ? (float)$r->github_score : null,
+                'leetcode_score'    => $r->leetcode_score !== null ? (float)$r->leetcode_score : null,
                 'malpractice'       => (int)$r->malpractice,
-                'recruiter_rating'  => (float)($r->recruiter_rating ?? 0),
+                'recruiter_rating'  => (float)$r->recruiter_rating ?? 0,
                 'timecreated'       => (int)$r->timecreated,
                 'timemodified'      => (int)$r->timemodified,
+                'job_is_finalized'  => (int)($r->job_is_finalized ?? 0),
+                'assessment_id'     => (int)($r->assessment_id ?? 0),
+                'assessment_title'  => $r->assessment_title ?? '',
+                'assessment_start_time' => (int)($r->assessment_start_time ?? 0),
+                'assessment_end_time'   => (int)($r->assessment_end_time ?? 0),
+                'assessment_status'     => $r->assessment_status ?? '',
             ];
         }
 
@@ -124,6 +151,8 @@ class list_applications extends external_api {
                     'id'                => new external_value(PARAM_INT, 'Application ID'),
                     'userid'            => new external_value(PARAM_INT, 'Candidate user ID'),
                     'jobid'             => new external_value(PARAM_INT, 'Job ID'),
+                    'job_title'         => new external_value(PARAM_TEXT, 'Job Title'),
+                    'job_department'    => new external_value(PARAM_TEXT, 'Job Department'),
                     'firstname'         => new external_value(PARAM_TEXT, 'First name'),
                     'lastname'          => new external_value(PARAM_TEXT, 'Last name'),
                     'email'             => new external_value(PARAM_TEXT, 'Email'),
@@ -132,12 +161,18 @@ class list_applications extends external_api {
                     'academia_score'    => new external_value(PARAM_FLOAT, 'Academia round score'),
                     'interview_score'   => new external_value(PARAM_FLOAT, 'Interview score'),
                     'overall_score'     => new external_value(PARAM_FLOAT, 'Overall score'),
-                    'github_score'      => new external_value(PARAM_FLOAT, 'GitHub score'),
-                    'linkedin_score'    => new external_value(PARAM_FLOAT, 'LinkedIn score'),
+                    'github_score'      => new external_value(PARAM_FLOAT, 'GitHub score', VALUE_OPTIONAL),
+                    'leetcode_score'    => new external_value(PARAM_FLOAT, 'LeetCode score', VALUE_OPTIONAL),
                     'malpractice'       => new external_value(PARAM_INT, 'Malpractice flag'),
                     'recruiter_rating'  => new external_value(PARAM_FLOAT, 'Recruiter rating'),
                     'timecreated'       => new external_value(PARAM_INT, 'Applied date'),
                     'timemodified'      => new external_value(PARAM_INT, 'Last updated'),
+                    'job_is_finalized'  => new external_value(PARAM_INT, 'Whether job JD Parser round is finalized', VALUE_OPTIONAL),
+                    'assessment_id'     => new external_value(PARAM_INT, 'Assessment ID', VALUE_OPTIONAL),
+                    'assessment_title'  => new external_value(PARAM_TEXT, 'Assessment title', VALUE_OPTIONAL),
+                    'assessment_start_time' => new external_value(PARAM_INT, 'Assessment start time', VALUE_OPTIONAL),
+                    'assessment_end_time'   => new external_value(PARAM_INT, 'Assessment end time', VALUE_OPTIONAL),
+                    'assessment_status'     => new external_value(PARAM_TEXT, 'Assessment status', VALUE_OPTIONAL),
                 ])
             ),
             'total' => new external_value(PARAM_INT, 'Total matching records'),

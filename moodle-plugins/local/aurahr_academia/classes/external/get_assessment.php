@@ -29,12 +29,21 @@ class get_assessment extends external_api {
         if ($params['assessmentid'] > 0) {
             $assessment = $DB->get_record('local_aurahr_assessments', ['id' => $params['assessmentid']], '*', MUST_EXIST);
         } elseif ($params['jobid'] > 0) {
-            $assessment = $DB->get_record('local_aurahr_assessments', ['jobid' => $params['jobid']]);
+            $assessments = $DB->get_records('local_aurahr_assessments', ['jobid' => $params['jobid']], 'id DESC', '*', 0, 1);
+            $assessment = $assessments ? reset($assessments) : null;
             if (!$assessment) {
                 return ['exists' => false, 'id' => 0, 'title' => '', 'status' => '', 'candidates' => []];
             }
         } else {
             throw new \invalid_parameter_exception('Either assessmentid or jobid is required');
+        }
+
+        // Dynamic status check for auto_start
+        $current_status = $assessment->status;
+        if ($current_status === 'scheduled' && !empty($assessment->auto_start) && !empty($assessment->start_time)) {
+            if (time() >= $assessment->start_time) {
+                $current_status = 'active';
+            }
         }
 
         // Get enrolled candidates.
@@ -78,6 +87,28 @@ class get_assessment extends external_api {
             }
         }
 
+        // Fetch stage, malpractice, and status for the current candidate
+        global $USER;
+        $user_stage = '';
+        $user_malpractice = 0;
+        $user_status = '';
+
+        $app = $DB->get_record('local_aurahr_applications', ['userid' => $USER->id, 'jobid' => $assessment->jobid]);
+        if ($app) {
+            $user_stage = $app->stage;
+            $user_malpractice = (int)$app->malpractice;
+        }
+
+        if ($enrol = $DB->get_record('local_aurahr_assess_enrol', ['assessmentid' => $assessment->id, 'userid' => $USER->id])) {
+            $user_status = $enrol->status;
+        }
+
+        // Hide other candidates if the user does not have manage permissions
+        $has_manage = has_capability('local/aurahr_academia:manage', \context_system::instance());
+        if (!$has_manage) {
+            $candidates = [];
+        }
+
         return [
             'exists'          => true,
             'id'              => (int)$assessment->id,
@@ -88,10 +119,14 @@ class get_assessment extends external_api {
             'pass_percentage' => (float)$assessment->pass_percentage,
             'start_time'      => (int)($assessment->start_time ?? 0),
             'end_time'        => (int)($assessment->end_time ?? 0),
-            'status'          => $assessment->status,
+            'auto_start'      => (bool)($assessment->auto_start ?? false),
+            'status'          => $current_status,
             'quizid'          => (int)($assessment->quizid ?? 0),
             'candidates'      => $candidates,
             'questions'       => $questions,
+            'user_stage'      => $user_stage,
+            'user_malpractice'=> $user_malpractice,
+            'user_status'     => $user_status,
         ];
     }
 
@@ -106,6 +141,7 @@ class get_assessment extends external_api {
             'pass_percentage' => new external_value(PARAM_FLOAT, 'Pass %', VALUE_OPTIONAL),
             'start_time'      => new external_value(PARAM_INT, 'Start time', VALUE_OPTIONAL),
             'end_time'        => new external_value(PARAM_INT, 'End time', VALUE_OPTIONAL),
+            'auto_start'      => new external_value(PARAM_BOOL, 'Auto start test', VALUE_OPTIONAL),
             'status'          => new external_value(PARAM_TEXT, 'Status'),
             'quizid'          => new external_value(PARAM_INT, 'Moodle quiz ID', VALUE_OPTIONAL),
             'candidates'      => new external_multiple_structure(
@@ -135,6 +171,9 @@ class get_assessment extends external_api {
                 'Generated questions list',
                 VALUE_OPTIONAL
             ),
+            'user_stage'      => new external_value(PARAM_TEXT, 'User stage', VALUE_OPTIONAL),
+            'user_malpractice'=> new external_value(PARAM_INT, 'User malpractice count', VALUE_OPTIONAL),
+            'user_status'     => new external_value(PARAM_TEXT, 'User enrollment status', VALUE_OPTIONAL),
         ]);
     }
 }

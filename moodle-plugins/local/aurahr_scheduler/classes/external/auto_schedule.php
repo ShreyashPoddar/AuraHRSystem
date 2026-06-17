@@ -34,11 +34,58 @@ class auto_schedule extends external_api {
             ];
         }
 
-        // 2. Get all unscheduled interviews for this jobid
-        $sql_unscheduled = "SELECT * FROM {local_aurahr_interviews} 
-                            WHERE jobid = :jobid AND (scheduled_at IS NULL OR scheduled_at = 0) 
-                            AND status = 'scheduled'";
-        $unscheduled = $DB->get_records_sql($sql_unscheduled, ['jobid' => $params['jobid']]);
+        // 2. Get applications in the 'interview' stage for this job
+        $sql_apps = "SELECT a.* 
+                     FROM {local_aurahr_applications} a
+                     WHERE a.jobid = :jobid AND a.stage = 'interview'";
+        $apps = $DB->get_records_sql($sql_apps, ['jobid' => $params['jobid']]);
+
+        $unscheduled = [];
+
+        // Check if each candidate in 'interview' stage has an active scheduled/completed/in_progress interview
+        foreach ($apps as $app) {
+            $has_interview = $DB->record_exists_select('local_aurahr_interviews',
+                "applicationid = ? AND status IN ('scheduled', 'in_progress', 'completed')",
+                [$app->id]);
+            if (!$has_interview) {
+                // Check if there is an existing placeholder interview record with scheduled_at = 0
+                $placeholder = $DB->get_record('local_aurahr_interviews', [
+                    'applicationid' => $app->id,
+                    'status' => 'scheduled',
+                    'scheduled_at' => 0
+                ]);
+                if ($placeholder) {
+                    $unscheduled[] = $placeholder;
+                } else {
+                    $unscheduled[] = (object)[
+                        'id' => 0, // indicates it needs to be inserted
+                        'applicationid' => $app->id,
+                        'jobid' => $app->jobid,
+                        'candidateid' => $app->userid,
+                        'status' => 'scheduled',
+                    ];
+                }
+            }
+        }
+
+        // Also fetch any other database entries in local_aurahr_interviews that are explicitly unscheduled
+        $sql_db_unscheduled = "SELECT * FROM {local_aurahr_interviews} 
+                               WHERE jobid = :jobid AND (scheduled_at IS NULL OR scheduled_at = 0) 
+                               AND status = 'scheduled'";
+        $db_unscheduled = $DB->get_records_sql($sql_db_unscheduled, ['jobid' => $params['jobid']]);
+        foreach ($db_unscheduled as $inv) {
+            // Avoid adding duplicates if already added via the application loop
+            $exists = false;
+            foreach ($unscheduled as $u) {
+                if ($u->id !== 0 && $u->id === $inv->id) {
+                    $exists = true;
+                    break;
+                }
+            }
+            if (!$exists) {
+                $unscheduled[] = $inv;
+            }
+        }
         
         if (empty($unscheduled)) {
             return ['success' => true, 'scheduled' => 0, 'message' => 'No unscheduled interviews found.'];
@@ -117,7 +164,7 @@ class auto_schedule extends external_api {
                             $check_end = $proposed_end + $gap_seconds;
                             
                             // existing interview start_time is scheduled_at, end_time is scheduled_at + duration_mins*60
-                            $overlap_interview = clone $DB->get_record_sql("
+                            $overlap_interview = $DB->get_record_sql("
                                 SELECT id FROM {local_aurahr_interviews}
                                 WHERE interviewerid = ? AND scheduled_at > 0 
                                 AND scheduled_at < ? 
@@ -129,17 +176,23 @@ class auto_schedule extends external_api {
                                 continue;
                             }
                             
-                            // We found a slot!
-                            $interview->scheduled_at = $current_time;
-                            $interview->duration_mins = $rules->preferred_duration;
-                            $interview->interviewerid = $interviewerid;
-                            $interview->jitsi_room = 'aurahr_auto_' . time() . '_' . $interview->id;
-                            $interview->timemodified = time();
-                            
-                            $DB->update_record('local_aurahr_interviews', $interview);
-                            $scheduled = true;
-                            $scheduled_count++;
-                            break;
+                             // We found a slot!
+                             $interview->scheduled_at = $current_time;
+                             $interview->duration_mins = $rules->preferred_duration;
+                             $interview->interviewerid = $interviewerid;
+                             $interview->timemodified = time();
+                             
+                             if (empty($interview->id)) {
+                                 $interview->timecreated = time();
+                                 $interview->jitsi_room = 'aurahr-interview-' . $interview->applicationid . '-' . time();
+                                 $DB->insert_record('local_aurahr_interviews', $interview);
+                             } else {
+                                 $interview->jitsi_room = 'aurahr-interview-' . $interview->applicationid . '-' . time();
+                                 $DB->update_record('local_aurahr_interviews', $interview);
+                             }
+                             $scheduled = true;
+                             $scheduled_count++;
+                             break;
                         }
                     }
                 }

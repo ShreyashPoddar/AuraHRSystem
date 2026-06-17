@@ -61,11 +61,10 @@ PROMPT;
 
         // Call AI.
         $client = new ai_client();
-        $response = $client->chat(
+        $analysis = $client->chat_json(
             self::SYSTEM_PROMPT,
             "Job Title: {$job->title}\nDepartment: {$job->department}\n\nJob Description:\n{$job->description}"
         );
-        $analysis = $client->parse_json_response($response);
 
         // Determine pass count.
         $finalpasscount = $params['pass_count'] > 0

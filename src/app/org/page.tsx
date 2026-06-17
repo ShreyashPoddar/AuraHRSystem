@@ -30,6 +30,7 @@ interface Stats {
   malpractice_count: number;
   avg_overall_score: number;
   stage_counts: StageCount[];
+  team_gaps?: string[];
 }
 
 const stageColors: Record<string, string> = {
@@ -52,6 +53,8 @@ export default function OrgOverviewPage() {
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedJobId, setSelectedJobId] = useState<number | ''>('');
+  const [scheduling, setScheduling] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -64,7 +67,11 @@ export default function OrgOverviewPage() {
         setJobs(jobsRes.jobs);
         setClosedJobs(closedJobsRes.jobs);
         setStats(statsRes);
-
+        
+        // Auto-select first job if any
+        if (jobsRes.jobs && jobsRes.jobs.length > 0) {
+          setSelectedJobId(jobsRes.jobs[0].id);
+        }
       } catch (err) {
         console.error('Failed to load overview data:', err);
       } finally {
@@ -73,6 +80,26 @@ export default function OrgOverviewPage() {
     }
     load();
   }, []);
+
+  async function handleAutoSchedule() {
+    if (!selectedJobId) return alert('Please select a vacancy first');
+    setScheduling(true);
+    try {
+      const res = await moodleCall<{ success: boolean; scheduled: number; message: string }>(
+        'local_aurahr_scheduler_auto_schedule',
+        { jobid: selectedJobId }
+      );
+      if (res.success) {
+        alert(res.message);
+      } else {
+        alert('Failed to auto-schedule: ' + res.message);
+      }
+    } catch (err: any) {
+      alert('Error running auto-schedule: ' + err.message);
+    } finally {
+      setScheduling(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -221,17 +248,66 @@ export default function OrgOverviewPage() {
 
         {/* Critical Tech Gaps & AI Scheduler */}
         <div className="space-y-6">
+          {/* Critical Tech Gaps Widget */}
+          <div className="bento-card p-5 bg-sage/5 border-sage/10">
+            <h2 className="font-serif text-base font-semibold text-ink flex items-center gap-2 mb-3">
+              <Users size={16} className="text-sage" />
+              Critical Tech Gaps
+            </h2>
+            {stats?.team_gaps && stats.team_gaps.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                {stats.team_gaps.map((skill, index) => (
+                  <span
+                    key={index}
+                    className="text-[10px] font-semibold px-2 py-1 rounded bg-sage/15 text-sage capitalize"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-ink/50 italic">No critical tech gaps identified.</p>
+            )}
+          </div>
 
-
+          {/* AI Scheduler Widget */}
           <div className="bento-card p-5 bg-gold/5 border-gold/10">
             <h2 className="font-serif text-base font-semibold text-ink flex items-center gap-2 mb-2">
               <Zap size={16} className="text-gold" />
               AI Scheduler
             </h2>
-            <p className="text-xs text-ink/60 mb-3">Feature coming soon.</p>
-            <button disabled className="w-full py-2 bg-gold/50 text-white rounded-lg text-xs font-bold cursor-not-allowed">
-              Run Auto-Schedule
-            </button>
+            {jobs.length === 0 ? (
+              <p className="text-xs text-ink/50 italic mb-3">No active vacancies to schedule.</p>
+            ) : (
+              <>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-ink/40 mb-1">
+                  Target Vacancy
+                </label>
+                <select
+                  value={selectedJobId}
+                  onChange={(e) => setSelectedJobId(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full mb-3 p-2 text-xs bg-white border border-ink/10 rounded-lg text-ink focus:outline-none focus:ring-1 focus:ring-gold/30"
+                >
+                  <option value="">Select a vacancy...</option>
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleAutoSchedule}
+                  disabled={!selectedJobId || scheduling}
+                  className={`w-full py-2 rounded-lg text-xs font-bold text-white transition-all shadow-sm ${
+                    !selectedJobId || scheduling
+                      ? 'bg-gold/40 cursor-not-allowed'
+                      : 'bg-gold hover:bg-gold/90'
+                  }`}
+                >
+                  {scheduling ? 'Scheduling...' : 'Run Auto-Schedule'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 

@@ -38,6 +38,31 @@ class get_application extends external_api {
             require_capability('local/aurahr_jobs:viewapplications', $context);
         }
 
+        // Fetch candidate preferences to get URLs.
+        // Reconstruct chunked preference if it exists
+        $chunks_count = $DB->get_field('user_preferences', 'value', [
+            'userid' => $record->userid,
+            'name'   => 'aurahr_candidate_settings_chunks'
+        ]);
+
+        $prefs = [];
+        if ($chunks_count) {
+            $full_json = '';
+            for ($i = 0; $i < (int)$chunks_count; $i++) {
+                $full_json .= $DB->get_field('user_preferences', 'value', [
+                    'userid' => $record->userid,
+                    'name'   => 'aurahr_candidate_settings_' . $i
+                ]);
+            }
+            $prefs = json_decode($full_json, true) ?: [];
+        } else {
+            $user_prefs_json = $DB->get_field('user_preferences', 'value', [
+                'userid' => $record->userid,
+                'name'   => 'aurahr_candidate_settings'
+            ]);
+            $prefs = $user_prefs_json ? (json_decode($user_prefs_json, true) ?: []) : [];
+        }
+
         return [
             'id'                 => (int)$record->id,
             'userid'             => (int)$record->userid,
@@ -64,7 +89,8 @@ class get_application extends external_api {
             'resume_skills'      => $record->resume_skills ?? '',
             'github_score'       => $record->github_score !== null ? (float)$record->github_score : null,
             'leetcode_score'     => $record->leetcode_score !== null ? (float)$record->leetcode_score : null,
-            'linkedin_score'     => $record->linkedin_score !== null ? (float)$record->linkedin_score : null,
+            'github_url'         => $record->github_url ?? '',
+            'leetcode_url'       => $record->leetcode_url ?? '',
             'matched_skills'     => $record->matched_skills ?? '',
             'recruiter_rating'   => (float)($record->recruiter_rating ?? 0),
             'recruiter_feedback' => $record->recruiter_feedback ?? '',
@@ -101,7 +127,8 @@ class get_application extends external_api {
             'resume_skills'      => new external_value(PARAM_RAW, 'Resume skills'),
             'github_score'       => new external_value(PARAM_FLOAT, 'Github score', VALUE_OPTIONAL),
             'leetcode_score'     => new external_value(PARAM_FLOAT, 'Leetcode score', VALUE_OPTIONAL),
-            'linkedin_score'     => new external_value(PARAM_FLOAT, 'Linkedin score', VALUE_OPTIONAL),
+            'github_url'         => new external_value(PARAM_TEXT, 'Github URL', VALUE_OPTIONAL),
+            'leetcode_url'       => new external_value(PARAM_TEXT, 'Leetcode URL', VALUE_OPTIONAL),
             'matched_skills'     => new external_value(PARAM_RAW, 'Matched skills'),
             'recruiter_rating'   => new external_value(PARAM_FLOAT, 'Recruiter rating'),
             'recruiter_feedback' => new external_value(PARAM_RAW, 'Recruiter feedback'),

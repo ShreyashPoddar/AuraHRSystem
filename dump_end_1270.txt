@@ -1,0 +1,80 @@
+Created At: 2026-06-02T11:48:34Z
+Completed At: 2026-06-02T11:48:34Z
+File Path: `file:///C:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/org/applications/%5Bid%5D/page.tsx`
+Total Lines: 868
+Total Bytes: 38288
+Showing lines 790 to 868
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+790: }
+791: 
+792: function AssessmentModal({ jobId, onClose }: { jobId: number, onClose: () => void }) {
+793:   const [title, setTitle] = useState('');
+794:   const [date, setDate] = useState('');
+795:   const [time, setTime] = useState('');
+796:   const [duration, setDuration] = useState('60');
+797:   const [saving, setSaving] = useState(false);
+798: 
+799:   const handleSubmit = async (e: React.FormEvent) => {
+800:     e.preventDefault();
+801:     setSaving(true);
+802:     try {
+803:       const dt = new Date(`${date}T${time}`);
+804:       const startTime = Math.floor(dt.getTime() / 1000);
+805:       await moodleCall('local_aurahr_jobs_schedule_assessment', {
+806:         jobid: jobId,
+807:         title,
+808:         start_time: startTime,
+809:         duration_mins: parseInt(duration, 10)
+810:       });
+811:       alert('Assessment scheduled successfully!');
+812:       onClose();
+813:     } catch (err) {
+814:       console.error(err);
+815:       alert('Failed to schedule assessment.');
+816:     } finally {
+817:       setSaving(false);
+818:     }
+819:   };
+820: 
+821:   return (
+822:     <motion.div
+823:       initial={{ opacity: 0 }}
+824:       animate={{ opacity: 1 }}
+825:       exit={{ opacity: 0 }}
+826:       className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+827:     >
+828:       <motion.div
+829:         initial={{ scale: 0.95, opacity: 0 }}
+830:         animate={{ scale: 1, opacity: 1 }}
+831:         exit={{ scale: 0.95, opacity: 0 }}
+832:         className="bg-cream rounded-2xl shadow-xl w-full max-
+<truncated 762 bytes>
+holder="e.g. Technical Screen" />
+842:           </div>
+843:           <div className="grid grid-cols-2 gap-4">
+844:             <div>
+845:               <label className="block text-xs font-semibold text-ink/60 uppercase tracking-wider mb-1">Date</label>
+846:               <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full p-2.5 bg-white border border-ink/10 rounded-xl text-sm" />
+847:             </div>
+848:             <div>
+849:               <label className="block text-xs font-semibold text-ink/60 uppercase tracking-wider mb-1">Time</label>
+850:               <input type="time" required value={time} onChange={e => setTime(e.target.value)} className="w-full p-2.5 bg-white border border-ink/10 rounded-xl text-sm" />
+851:             </div>
+852:           </div>
+853:           <div>
+854:             <label className="block text-xs font-semibold text-ink/60 uppercase tracking-wider mb-1">Duration (minutes)</label>
+855:             <input type="number" required min="15" value={duration} onChange={e => setDuration(e.target.value)} className="w-full p-2.5 bg-white border border-ink/10 rounded-xl text-sm" />
+856:           </div>
+857:           <div className="pt-4 border-t border-ink/10 flex justify-end gap-3">
+858:             <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-ink/60 hover:bg-ink/5">Cancel</button>
+859:             <button type="submit" disabled={saving} className="px-4 py-2 rounded-xl text-sm font-bold bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 flex items-center gap-2">
+860:               {saving ? <Loader2 size={16} className="animate-spin" /> : 'Schedule'}
+861:             </button>
+862:           </div>
+863:         </form>
+864:       </motion.div>
+865:     </motion.div>
+866:   );
+867: }
+868: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

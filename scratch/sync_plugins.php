@@ -1,5 +1,5 @@
 <?php
-$src = 'c:/Users/shrey/Desktop/AuraHR/moodle-plugins/local';
+$src = 'c:/Users/shrey/Desktop/AuraHR/backend-moodle-plugins/local';
 $dst = 'C:/xampp/htdocs/moodle/local';
 
 function recurse_copy($src, $dst) {

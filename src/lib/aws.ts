@@ -53,7 +53,7 @@ export async function sendInterviewInvite(to: string, candidateName: string, rol
               <p>Dear ${candidateName},</p>
               <p>We are impressed by your profile for the <b>${role}</b> position.</p>
               <p>Your AI-proctored interview is scheduled. Please join via the link below:</p>
-              <a href="${jitsiLink}" style="background: #c8a84b; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Launch NexusHR Interview Console</a>
+              <a href="${jitsiLink}" style="background: #c8a84b; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Launch aurhr Interview Console</a>
               <p style="margin-top: 20px; color: #666; font-size: 12px;">This session will be recorded and proctored for integrity analysis.</p>
             </div>
           `,
@@ -121,7 +121,7 @@ export async function parseResumeWithTextract(fileBuffer: Buffer, fileName: stri
       B.Tech in Computer Science | Indian Institute of Technology (IIT)
       
       PROJECTS
-      NexusHR - Global Recruitment Platform
+      aurhr - Global Recruitment Platform
       AuraFlow - Automated Compliance Engine
     `;
   }

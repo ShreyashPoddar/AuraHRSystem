@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, ArrowUpDown, ChevronDown, Users, AlertTriangle,
-  Loader2, Star, Eye, X, Mail, Phone, MapPin, Briefcase, GraduationCap, Code, Video, Pencil, Check, FileText, ChevronRight
+  Loader2, Star, Eye, X, Mail, Phone, MapPin, Briefcase, GraduationCap, Code, Video, Pencil, Check, FileText, ChevronRight, RefreshCw
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import RadarChart from '@/components/RadarChart';
@@ -19,14 +19,13 @@ interface Application {
   lastname: string;
   email: string;
   stage: string;
-  jd_score: number;
-  academia_score: number;
-  interview_score: number;
-  github_score: number;
-  linkedin_score: number;
-  overall_score: number;
+  jd_score?: number | null;
+  academia_score?: number | null;
+  interview_score?: number | null;
+  github_score?: number | null;
+  leetcode_score?: number | null;
+  overall_score?: number | null;
   github_url?: string;
-  linkedin_url?: string;
   leetcode_url?: string;
   malpractice: number;
   recruiter_rating: number;
@@ -60,10 +59,10 @@ interface ApplicationDetail {
   country: string;
   bio: string;
   stage: string;
-  jd_score: number;
-  academia_score: number;
-  interview_score: number;
-  overall_score: number;
+  jd_score?: number | null;
+  academia_score?: number | null;
+  interview_score?: number | null;
+  overall_score?: number | null;
   malpractice: number;
   age: number | null;
   gender: string;
@@ -72,9 +71,7 @@ interface ApplicationDetail {
   resume_skills: string;
   github_score: number | null;
   leetcode_score: number | null;
-  linkedin_score: number | null;
   github_url?: string;
-  linkedin_url?: string;
   leetcode_url?: string;
   matched_skills: string;
   recruiter_rating: number;
@@ -108,15 +105,19 @@ export default function ApplicationDetailPage() {
   const [sortField, setSortField] = useState('overall_score');
   const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedApp, setSelectedApp] = useState<ApplicationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [descText, setDescText] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadApplications = useCallback(async () => {
+  const loadApplications = useCallback(async (isBackground = false) => {
     if (!jobId) return;
-    setLoading(true);
+    if (!isBackground) setLoading(true);
+    else setRefreshing(true);
     try {
       const [jobRes, appsRes] = await Promise.all([
         moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId }),
@@ -129,14 +130,23 @@ export default function ApplicationDetailPage() {
       setDescText(jobRes.description || '');
       setApplications(appsRes.applications);
       setTotal(appsRes.total);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Failed to load:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [jobId, stageFilter, search, sortField, sortDir]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
+
+  // Auto-poll every 30 seconds to pick up new academia/interview scores
+  useEffect(() => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(() => { loadApplications(true); }, 30000);
+    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
+  }, [loadApplications]);
 
   async function openDetail(appId: number) {
     setDetailLoading(true);
@@ -169,7 +179,8 @@ export default function ApplicationDetailPage() {
     });
   }
 
-  function scoreColor(score: number) {
+  function scoreColor(score: number | null | undefined) {
+    if (score === null || score === undefined) return 'text-ink/20';
     if (score >= 80) return 'text-emerald-600';
     if (score >= 60) return 'text-amber-600';
     return 'text-rust';
@@ -314,6 +325,22 @@ export default function ApplicationDetailPage() {
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-2 ml-auto">
+          {lastUpdated && (
+            <span className="text-[11px] text-ink/30 font-medium">
+              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          <button
+            onClick={() => loadApplications(true)}
+            disabled={refreshing || loading}
+            title="Refresh scores"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink/60 bg-ink/5 hover:bg-ink/10 border border-ink/10 rounded-xl transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Applications table */}
@@ -336,7 +363,7 @@ export default function ApplicationDetailPage() {
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">GitHub</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">LinkedIn</th>
+                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">LeetCode</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
@@ -374,35 +401,43 @@ export default function ApplicationDetailPage() {
                   <td className="px-5 py-4">
                     <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
                   </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.github_score)}`}>
-                    {app.github_score > 0 ? `${app.github_score.toFixed(1)}` : '—'}
+                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.github_score || 0)}`}>
+                    {app.github_score !== null && app.github_score !== undefined ? `${app.github_score.toFixed(1)}` : '—'}
                   </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.linkedin_score)}`}>
-                    {app.linkedin_score > 0 ? `${app.linkedin_score.toFixed(1)}` : '—'}
+                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.leetcode_score || 0)}`}>
+                    {app.leetcode_score !== null && app.leetcode_score !== undefined ? `${app.leetcode_score.toFixed(1)}` : '—'}
                   </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
-                    {app.jd_score > 0 ? `${app.jd_score.toFixed(1)}` : '—'}
+                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score || 0)}`}>
+                    {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
                   </td>
                   <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.academia_score)}`}>
-                    {app.academia_score > 0 ? `${app.academia_score.toFixed(1)}` : '—'}
+                    {app.academia_score !== null && app.academia_score !== undefined ? `${app.academia_score.toFixed(1)}` : '—'}
                   </td>
                   <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.interview_score)}`}>
-                    {app.interview_score > 0 ? `${app.interview_score.toFixed(1)}` : '—'}
+                    {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
                   </td>
                   <td className="px-5 py-4">
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg capitalize whitespace-nowrap ${stageColors[app.stage] || 'bg-ink/5 text-ink/50'}`}>
                       {app.stage}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-center">
-                    {app.malpractice === 1 ? (
-                       <span className="inline-flex items-center justify-center w-6 h-6 bg-rust/10 text-rust rounded-full" title="Malpractice detected"><AlertTriangle size={12} /></span>
+                  <td className="px-5 py-4 text-center whitespace-nowrap">
+                    {app.malpractice >= 5 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rust/10 text-rust rounded-lg text-xs font-bold border border-rust/20" title={`${app.malpractice} violations (Disqualified)`}>
+                        <AlertTriangle size={12} />
+                        <span>{app.malpractice} (Disqualified)</span>
+                      </span>
+                    ) : app.malpractice > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 rounded-lg text-xs font-bold border border-amber-200/50" title={`${app.malpractice} violations flagged`}>
+                        <AlertTriangle size={12} />
+                        <span>{app.malpractice} Flags</span>
+                      </span>
                     ) : (
-                       <span className="text-ink/20">—</span>
+                      <span className="text-ink/20 font-medium">—</span>
                     )}
                   </td>
                   <td className={`px-5 py-4 text-right text-sm font-mono font-bold ${scoreColor(app.overall_score)}`}>
-                    {app.overall_score > 0 ? `${app.overall_score.toFixed(1)}` : '—'}
+                    {app.overall_score !== null && app.overall_score !== undefined ? `${app.overall_score.toFixed(1)}` : '—'}
                   </td>
                 </motion.tr>
               ))}
@@ -440,7 +475,6 @@ function CandidateDetailPopup({
   onStageUpdate: () => void;
 }) {
   const [updating, setUpdating] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
   async function moveStage(newStage: string) {
@@ -457,21 +491,6 @@ function CandidateDetailPopup({
       console.error(err);
     } finally {
       setUpdating(false);
-    }
-  }
-
-  async function handleAnalyzeSocials() {
-    if (!app) return;
-    setAnalyzing(true);
-    try {
-      await moodleCall('local_aurahr_jobs_analyze_socials', { applicationid: app.id });
-      onStageUpdate();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert('Failed to analyze socials. Check Moodle/AI config.');
-    } finally {
-      setAnalyzing(false);
     }
   }
 
@@ -573,11 +592,6 @@ function CandidateDetailPopup({
                   <MapPin size={12} /> {app.city}{app.country ? `, ${app.country}` : ''}
                 </span>
               )}
-              {app.linkedin_url && (
-                <a href={app.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Briefcase size={12} /> LinkedIn
-                </a>
-              )}
               {app.github_url && (
                 <a href={app.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-ink bg-ink/10 hover:bg-ink/20 px-3 py-1.5 rounded-xl transition-colors">
                   <Code size={12} /> GitHub
@@ -598,12 +612,17 @@ function CandidateDetailPopup({
                   {app.stage}
                 </span>
               </div>
-              {app.malpractice === 1 && (
+              {app.malpractice >= 5 ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-rust/10 border border-rust/20 rounded-lg text-rust">
                   <AlertTriangle size={14} />
-                  <span className="text-xs font-bold">Malpractice Flagged</span>
+                  <span className="text-xs font-bold">{app.malpractice} Violations (Disqualified)</span>
                 </div>
-              )}
+              ) : app.malpractice > 0 ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-200 rounded-lg text-amber-700">
+                  <AlertTriangle size={14} />
+                  <span className="text-xs font-bold">{app.malpractice} Violations Flagged</span>
+                </div>
+              ) : null}
             </div>
 
             {/* Education Details */}
@@ -624,24 +643,14 @@ function CandidateDetailPopup({
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs text-ink/40 uppercase tracking-wider font-semibold">Scores</p>
-                  {(app.github_url || app.linkedin_url) && (
-                    <button 
-                      onClick={handleAnalyzeSocials}
-                      disabled={analyzing}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-sage/10 text-sage hover:bg-sage/20 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
-                    >
-                      {analyzing ? <Loader2 size={14} className="animate-spin" /> : <Star size={14} />}
-                      {analyzing ? 'Analyzing...' : 'Analyze Socials (AI)'}
-                    </button>
-                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <ScoreCard label="JD Match" value={app.jd_score} />
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
                   <ScoreCard label="Overall" value={app.overall_score} highlight />
-                  {(app.github_score && app.github_score > 0) ? <ScoreCard label="GitHub" value={app.github_score} /> : null}
-                  {(app.linkedin_score && app.linkedin_score > 0) ? <ScoreCard label="LinkedIn" value={app.linkedin_score} /> : null}
+                  {(app.github_score !== null && app.github_score !== undefined) ? <ScoreCard label="GitHub" value={app.github_score} /> : null}
+                  {(app.leetcode_score !== null && app.leetcode_score !== undefined) ? <ScoreCard label="LeetCode" value={app.leetcode_score} /> : null}
                 </div>
               </div>
 
@@ -667,7 +676,6 @@ function CandidateDetailPopup({
                 <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
                 <PlatformScoreCard icon={<Code size={16} className="text-ink" />} label="GitHub" score={app.github_score} />
                 <PlatformScoreCard icon={<Code size={16} className="text-gold" />} label="LeetCode" score={app.leetcode_score} />
-                <PlatformScoreCard icon={<Briefcase size={16} className="text-blue-600" />} label="LinkedIn" score={app.linkedin_score} />
               </div>
             </div>
 
@@ -703,9 +711,9 @@ function CandidateDetailPopup({
   );
 }
 
-function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null, skills?: string }) {
+function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null | undefined, skills?: string }) {
   if (score === null && !skills) return null;
-  const validScore = score !== null ? Math.min(100, Math.max(0, score)) : 0;
+  const validScore = (score !== null && score !== undefined) ? Math.min(100, Math.max(0, score)) : 0;
   
   return (
     <div className="p-3.5 bg-white border border-ink/5 rounded-xl shadow-sm flex flex-col gap-2">
@@ -748,24 +756,30 @@ function StatBox({ label, value, highlight }: { label: string; value: number; hi
   );
 }
 
-function ScoreCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function ScoreCard({ label, value, highlight }: { label: string; value: number | null | undefined; highlight?: boolean }) {
+  if (value === null || value === undefined) {
+    return (
+      <div className={`p-3 rounded-xl ${highlight ? 'bg-sage/10 border border-sage/20' : 'bg-warm-sand/50'}`}>
+        <p className="text-[10px] text-ink/40 uppercase tracking-wider font-semibold">{label}</p>
+        <p className="text-lg font-bold font-mono mt-1 text-ink/20">—</p>
+      </div>
+    );
+  }
   const pct = Math.min(100, Math.max(0, value));
   return (
     <div className={`p-3 rounded-xl ${highlight ? 'bg-sage/10 border border-sage/20' : 'bg-warm-sand/50'}`}>
       <p className="text-[10px] text-ink/40 uppercase tracking-wider font-semibold">{label}</p>
-      <p className={`text-lg font-bold font-mono mt-1 ${value > 0 ? (value >= 70 ? 'text-emerald-600' : 'text-amber-600') : 'text-ink/20'}`}>
-        {value > 0 ? `${value.toFixed(1)}%` : '—'}
+      <p className={`text-lg font-bold font-mono mt-1 ${value >= 70 ? 'text-emerald-600' : value >= 40 ? 'text-amber-600' : 'text-rust'}`}>
+        {value.toFixed(1)}%
       </p>
-      {value > 0 && (
-        <div className="w-full h-1.5 bg-ink/5 rounded-full mt-2 overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className={`h-full rounded-full ${value >= 70 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-          />
-        </div>
-      )}
+      <div className="w-full h-1.5 bg-ink/5 rounded-full mt-2 overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className={`h-full rounded-full ${value >= 70 ? 'bg-emerald-500' : value >= 40 ? 'bg-amber-500' : 'bg-rust'}`}
+        />
+      </div>
     </div>
   );
 }

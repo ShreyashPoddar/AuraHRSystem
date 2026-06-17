@@ -48,8 +48,8 @@ const FAQS = [
     answer: 'Our JD Parser uses Gemini 2.5 to evaluate a candidates resume against your Job Description. It extracts "must-have" and "good-to-have" skills and outputs a match percentage from 0-100.'
   },
   {
-    question: 'How do I trigger social profile analysis?',
-    answer: 'Go to the Applications tab, click on any candidate to open their details popup, and click the "Analyze Socials (AI)" button. The system will scrape their provided GitHub and LinkedIn links and generate scores.'
+    question: 'How is social profile analysis triggered?',
+    answer: 'Social profile analysis is triggered automatically as soon as a candidate applies to a job posting. The system will scrape their provided GitHub, LinkedIn, and LeetCode links and generate scores instantly.'
   },
   {
     question: 'What is the malpractice detection system?',

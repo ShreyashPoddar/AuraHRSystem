@@ -27,10 +27,21 @@ export default function OpenPostsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await moodleCall<{ jobs: Job[] }>('local_aurahr_jobs_list_jobs', { status: 'active' });
-        setJobs(res.jobs);
+        const [jobsRes, appsRes] = await Promise.all([
+          moodleCall<{ jobs: Job[] }>('local_aurahr_jobs_list_jobs', { status: 'active' }),
+          moodleCall<{ applications: Array<{ jobid: number }> }>('local_aurahr_jobs_list_applications', { jobid: 0 })
+        ]);
+        setJobs(jobsRes.jobs);
+        
+        const appliedIds = new Set<number>();
+        if (appsRes.applications) {
+          appsRes.applications.forEach((app) => {
+            appliedIds.add(app.jobid);
+          });
+        }
+        setApplied(appliedIds);
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load jobs or applications:', err);
       } finally {
         setLoading(false);
       }

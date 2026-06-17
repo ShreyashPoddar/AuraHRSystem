@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   User, Mail, Phone, MapPin, Briefcase, Upload,
   CheckCircle, Loader2, Link,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { moodleCall } from '@/lib/moodle';
 
 export default function CandidateProfilePage() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     firstname: user?.firstname || '',
     lastname: user?.lastname || '',
@@ -22,12 +24,42 @@ export default function CandidateProfilePage() {
     tech_skills: '',
     nontech_skills: '',
     bio: '',
-    linkedin: '',
     github: '',
     leetcode: '',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const res = await moodleCall<{ data: string }>('local_aurahr_jobs_get_user_prefs', {});
+        if (res.data && res.data !== '{}') {
+          const parsed = JSON.parse(res.data);
+          setForm(prev => ({
+            ...prev,
+            firstname: parsed.firstname || prev.firstname,
+            lastname: parsed.lastname || prev.lastname,
+            phone: parsed.phone || '',
+            city: parsed.city || '',
+            dob: parsed.dob || '',
+            gender: parsed.gender || '',
+            education: parsed.education || '',
+            tech_skills: parsed.tech_skills || '',
+            nontech_skills: parsed.nontech_skills || '',
+            bio: parsed.bio || '',
+            github: parsed.github || '',
+            leetcode: parsed.leetcode || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProfile();
+  }, [user]);
 
   function update(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -37,19 +69,31 @@ export default function CandidateProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await import('@/lib/moodle').then(m => m.moodleCall('local_aurahr_jobs_update_candidate_urls', {
+      // 1. Save all fields to Moodle user preferences
+      await moodleCall('local_aurahr_jobs_update_user_prefs', {
+        data: JSON.stringify(form)
+      });
+      // 2. Sync URLs to application records in Moodle database
+      await moodleCall('local_aurahr_jobs_update_candidate_urls', {
         github_url: form.github,
-        linkedin_url: form.linkedin,
         leetcode_url: form.leetcode
-      }));
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error(err);
-      alert('Failed to save URLs.');
+      alert('Failed to save profile.');
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 size={32} className="animate-spin text-sage" />
+      </div>
+    );
   }
 
   return (
@@ -172,14 +216,7 @@ export default function CandidateProfilePage() {
             rows={4} className="input-field resize-none" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">
-              <Link size={14} className="inline mr-1" /> LinkedIn
-            </label>
-            <input type="url" value={form.linkedin} onChange={e => update('linkedin', e.target.value)}
-              placeholder="https://linkedin.com/in/..." className="input-field" />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">
               <Link size={14} className="inline mr-1" /> GitHub

@@ -3,11 +3,11 @@
 import { type ReactNode } from 'react';
 import { CandidateSidebar } from '@/components/CandidateSidebar';
 import { TopNavBar } from '@/components/TopNavBar';
-import { AuthProvider } from '@/contexts/AuthContext';
+import RouteGuard from '@/components/RouteGuard';
 
 export default function CandidateLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
+    <RouteGuard role="candidate">
       <div className="flex h-screen overflow-hidden bg-warm-sand">
         <CandidateSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -17,6 +17,6 @@ export default function CandidateLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
-    </AuthProvider>
+    </RouteGuard>
   );
 }

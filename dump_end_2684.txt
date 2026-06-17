@@ -1,0 +1,15 @@
+Created At: 2026-06-03T10:33:39Z
+Completed At: 2026-06-03T10:33:39Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1010
+Total Bytes: 45711
+Showing lines 1004 to 1010
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1004:       </div>
+1005:     
+1006: </div>
+1007:   );
+1008: }
+1009: 
+1010: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

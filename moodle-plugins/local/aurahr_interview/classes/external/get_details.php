@@ -25,14 +25,38 @@ class get_details extends external_api {
             'applicationid' => $applicationid,
         ]);
 
-        $application = $DB->get_record('local_aurahr_applications', ['id' => $params['applicationid']], '*', MUST_EXIST);
+        $application = $DB->get_record('local_aurahr_applications', ['id' => $params['applicationid']], '*', IGNORE_MISSING);
+        if (!$application) {
+            return [
+                'found' => false,
+                'error' => 'Application not found.',
+                'id' => 0, 'job_title' => '', 'candidate_name' => '', 'candidate_email' => '',
+                'interviewer_name' => '', 'scheduled_at' => 0, 'duration_mins' => 0,
+                'jitsi_room' => '', 'status' => '', 'interviewer_score' => 0.0,
+                'interviewer_notes' => '', 'ai_score' => 0.0, 'ai_evaluation' => '',
+                'transcript' => '', 'malpractice' => 0, 'questions' => [],
+            ];
+        }
+
         $interview = $DB->get_record('local_aurahr_interviews', [
             'candidateid' => $application->userid,
             'jobid' => $application->jobid
-        ], '*', MUST_EXIST);
-        $job = $DB->get_record('local_aurahr_jobs', ['id' => $interview->jobid], 'title', MUST_EXIST);
-        
-        $candidate = $DB->get_record('user', ['id' => $interview->candidateid], 'firstname, lastname, email', MUST_EXIST);
+        ], '*', IGNORE_MISSING);
+
+        if (!$interview) {
+            return [
+                'found' => false,
+                'error' => 'No interview has been scheduled for this application yet.',
+                'id' => 0, 'job_title' => '', 'candidate_name' => '', 'candidate_email' => '',
+                'interviewer_name' => '', 'scheduled_at' => 0, 'duration_mins' => 0,
+                'jitsi_room' => '', 'status' => '', 'interviewer_score' => 0.0,
+                'interviewer_notes' => '', 'ai_score' => 0.0, 'ai_evaluation' => '',
+                'transcript' => '', 'malpractice' => 0, 'questions' => [],
+            ];
+        }
+
+        $job = $DB->get_record('local_aurahr_jobs', ['id' => $interview->jobid], 'title', IGNORE_MISSING);
+        $candidate = $DB->get_record('user', ['id' => $interview->candidateid], 'firstname, lastname, email', IGNORE_MISSING);
         
         $interviewer_name = '';
         if ($interview->interviewerid) {
@@ -56,10 +80,12 @@ class get_details extends external_api {
         }
 
         return [
+            'found'             => true,
+            'error'             => '',
             'id'                => (int)$interview->id,
-            'job_title'         => $job->title,
-            'candidate_name'    => "{$candidate->firstname} {$candidate->lastname}",
-            'candidate_email'   => $candidate->email,
+            'job_title'         => $job ? $job->title : '',
+            'candidate_name'    => $candidate ? "{$candidate->firstname} {$candidate->lastname}" : '',
+            'candidate_email'   => $candidate ? $candidate->email : '',
             'interviewer_name'  => $interviewer_name,
             'scheduled_at'      => (int)$interview->scheduled_at,
             'duration_mins'     => (int)$interview->duration_mins,
@@ -77,6 +103,8 @@ class get_details extends external_api {
 
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
+            'found'             => new external_value(PARAM_BOOL, 'Whether interview was found', VALUE_DEFAULT, true),
+            'error'             => new external_value(PARAM_TEXT, 'Error message if not found', VALUE_DEFAULT, ''),
             'id'                => new external_value(PARAM_INT, 'Interview ID'),
             'job_title'         => new external_value(PARAM_TEXT, 'Job title'),
             'candidate_name'    => new external_value(PARAM_TEXT, 'Candidate name'),

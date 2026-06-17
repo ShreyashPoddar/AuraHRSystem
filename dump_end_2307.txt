@@ -1,0 +1,83 @@
+Created At: 2026-06-03T09:51:06Z
+Completed At: 2026-06-03T09:51:06Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 933
+Total Bytes: 41560
+Showing lines 800 to 933
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+800:           return 0;
+801:         }
+802:         return prev - 1;
+803:       });
+804:     }, 1000);
+805:     return () => clearInterval(id);
+806:   }, [timeLeft]);
+807: 
+808:   // ── Active test ────────────────────────────────────────────────────────
+809:   return (
+810:     <div className="fixed inset-0 bg-cream z-50 overflow-y-auto p-8 pt-12">
+811:       <div className="max-w-4xl mx-auto flex gap-8">
+812: 
+813:         {/* Question nav + Timer */}
+814:         <div className="w-64 shrink-0">
+815:           <div className="bento-card p-5 sticky top-6 space-y-4">
+816: 
+817:             {/* ── Countdown Timer ── */}
+818:             <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-mono font-bold text-2xl
+819:               ${timeLeft <= 60
+820:                 ? 'bg-red-100 text-red-600 animate-pulse'
+821:                 : timeLeft <= 300
+822:                   ? 'bg-amber-50 text-amber-600'
+823:                   : 'bg-ink/5 text-ink'}`}>
+824:               <Clock size={18} className="shrink-0" />
+825:               {formatTime(timeLeft)}
+826:             </div>
+827: 
+828:             {violationCount > 0 && (
+829:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+830:                 ${flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+831:                 <ShieldAlert size={14} />
+832:                 {violationCount} Violatio
+<truncated 3237 bytes>
+rget.value }))}
+894:                   placeholder="Type your answer here…"
+895:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+896:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+897:                 />
+898:               )}
+899:             </div>
+900: 
+901:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+902:               <button
+903:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+904:                 disabled={currentQ === 0}
+905:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+906:               >
+907:                 Previous
+908:               </button>
+909: 
+910:               {isLast ? (
+911:                 <button onClick={handleSubmit} disabled={submitting}
+912:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+913:                 >
+914:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+915:                   Submit Assessment
+916:                 </button>
+917:               ) : (
+918:                 <button
+919:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+920:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+921:                 >
+922:                   Next
+923:                 </button>
+924:               )}
+925:             </div>
+926:           </div>
+927:         </div>
+928:       </div>
+929:     </div>
+930:   );
+931: }
+932: 
+933: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

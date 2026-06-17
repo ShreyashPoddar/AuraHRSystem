@@ -63,14 +63,100 @@ function getMockDataForRole(role: string): any[] {
 }
 
 /**
+ * Helper to generate mock structured data matching expected schemas
+ */
+function getFallbackMockData<T>(prompt: string, systemPrompt: string): T {
+  const p = prompt.toLowerCase();
+  const sys = systemPrompt.toLowerCase();
+
+  // 1. Check if it's assessment evaluation (score & feedback)
+  if (p.includes('evaluate') || p.includes('score') || sys.includes('evaluator')) {
+    return {
+      score: 75,
+      feedback: "The candidate answered the questions with good overall technical accuracy. MCQs were handled correctly, and descriptive responses covered the core concepts well, though some answers could benefit from more detailed implementation context."
+    } as unknown as T;
+  }
+
+  // 2. Check if it's AI Interview evaluation (matrix & nextQuestion)
+  if (p.includes('communication clarity') || p.includes('cultural fit') || sys.includes('interview')) {
+    return {
+      matrix: {
+        technicalAccuracy: 80,
+        communicationClarity: 85,
+        culturalFit: 85,
+        jdRelevance: 80,
+        overall: 82,
+        sentiment: "positive",
+        nextQuestion: "Can you elaborate on how you optimize performance in frontend applications?",
+        reasoning: {
+          technicalAccuracy: "Candidate explains core concepts correctly.",
+          communicationClarity: "Clear verbal delivery and structure.",
+          culturalFit: "Shows strong alignment with team values.",
+          jdRelevance: "Addresses key skills required in the job description."
+        }
+      }
+    } as unknown as T;
+  }
+
+  // 3. Check if it's JD Parse
+  if (p.includes('job description') || p.includes('jd:') || sys.includes('hiring strategist')) {
+    return {
+      role: "Software Engineer",
+      mustHave: ["React", "TypeScript", "Node.js"],
+      goodToHave: ["Next.js", "Tailwind CSS", "SQL"],
+      futureProof: ["AI integrations", "Cloud architecture"],
+      teamGap: ["Advanced caching", "Real-time state sync"],
+      summary: "This role focuses on building interactive full-stack web applications with advanced modern styling and logic."
+    } as unknown as T;
+  }
+
+  // 4. Check if it's Resume Parse
+  if (p.includes('resume') || sys.includes('recruitment ai')) {
+    return {
+      bio: "Skilled Software Engineer with extensive experience developing full-stack web applications.",
+      technical_skills: ["JavaScript", "TypeScript", "React", "Node.js", "SQL", "Git"],
+      non_technical_skills: ["Agile methodology", "Mentoring", "Technical Writing"],
+      experience: [
+        {
+          role: "Software Engineer",
+          company: "Tech Solutions Inc.",
+          achievements: [
+            "Developed responsive user interfaces using React and Tailwind CSS.",
+            "Integrated RESTful APIs and optimized database queries."
+          ]
+        }
+      ],
+      education: [
+        {
+          degree: "Bachelor of Science in Computer Science",
+          institution: "University of Technology",
+          year: "2022"
+        }
+      ]
+    } as unknown as T;
+  }
+
+  const roleMatch = prompt.match(/\*\*([^*]+)\*\*/);
+  const role = roleMatch ? roleMatch[1] : "General";
+
+  // 5. Check if it is wrapped questions list
+  if (p.includes('"questions":') || sys.includes('array of questions')) {
+    return {
+      questions: getMockDataForRole(role)
+    } as unknown as T;
+  }
+
+  // 6. Default to standard questions list
+  return getMockDataForRole(role) as unknown as T;
+}
+
+/**
  * Helper to get structured JSON from GPT-OSS 120B or High-fidelity Mock
  */
 export async function getStructuredAIResponse<T>(prompt: string, systemPrompt: string = "View as an expert HR analyst."): Promise<T | null> {
   // Check if we should use mock
   if (!process.env.NEEV_API_KEY || process.env.NEEV_API_KEY.includes("YOUR_KEY")) {
-    const roleMatch = prompt.match(/\*\*([^*]+)\*\*/); // Extract role from prompt if possible
-    const role = roleMatch ? roleMatch[1] : "General";
-    return getMockDataForRole(role) as unknown as T;
+    return getFallbackMockData<T>(prompt, systemPrompt);
   }
 
   try {
@@ -89,6 +175,6 @@ export async function getStructuredAIResponse<T>(prompt: string, systemPrompt: s
   } catch (error) {
     console.error("AI Response Error:", error);
     // Final fallback to mock if AI fails
-    return getMockDataForRole("General") as unknown as T;
+    return getFallbackMockData<T>(prompt, systemPrompt);
   }
 }

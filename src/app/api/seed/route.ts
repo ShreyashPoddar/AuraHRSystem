@@ -5,15 +5,15 @@ export async function POST() {
   const db = await getDb();
 
   db.employees = [
-    { id: '1', name: 'Sarah Chen', email: 'sarah@nexushr.com', role: 'Engineering Director', location: 'San Francisco, CA', salary: 4200000, state: 'Maharashtra', taxRegime: 'new', pan: 'ABCPS1234A', uan: '100208765432' },
-    { id: '2', name: 'Rahul Verma', email: 'rahul@nexushr.com', role: 'Product Manager', location: 'Bengaluru, KA', salary: 2800000, state: 'Karnataka', taxRegime: 'new', pan: 'AABPV4321B', uan: '100298765001' },
-    { id: '3', name: 'Anita Desai', email: 'anita@nexushr.com', role: 'HR Business Partner', location: 'Mumbai, MH', salary: 1800000, state: 'Maharashtra', taxRegime: 'old', pan: 'AAAPD5678C', uan: '100312345009' },
-    { id: '4', name: 'David Kim', email: 'david@nexushr.com', role: 'Backend Engineer', location: 'Hyderabad, TS', salary: 2200000, state: 'Maharashtra', taxRegime: 'new', pan: 'ABCDK8765D', uan: '100412345678' },
-    { id: '5', name: 'Sandeep Varma', email: 'sandeep.varma@nexushr.com', role: 'Senior VLSI Engineer', location: 'Bengaluru, KA', salary: 3600000, state: 'Karnataka', taxRegime: 'new', pan: 'AADSV9012E', uan: '100512349876' },
-    { id: '6', name: 'Megha Iyer', email: 'megha.iyer@nexushr.com', role: 'HR Compliance Specialist', location: 'Chennai, TN', salary: 1600000, state: 'Tamil Nadu', taxRegime: 'old', pan: 'AAFMI6543F', uan: '100612348765' },
-    { id: '7', name: 'Karan Bir Singh', email: 'karan.singh@nexushr.com', role: 'Digital Logic Designer', location: 'Chandigarh, PB', salary: 1400000, state: 'Maharashtra', taxRegime: 'new', pan: 'AAGKS2109G', uan: '100712347654' },
-    { id: '8', name: 'Tanvi Gupta', email: 'tanvi.gupta@nexushr.com', role: 'Systems Analyst', location: 'New Delhi, DL', salary: 2100000, state: 'Maharashtra', taxRegime: 'old', pan: 'AAHGT7654H', uan: '100812346543' },
-    { id: '9', name: 'Amitabh Das', email: 'amitabh.das@nexushr.com', role: 'Project Lead — Infrastructure', location: 'Hyderabad, TS', salary: 4500000, state: 'Maharashtra', taxRegime: 'new', pan: 'AAIAD3210I', uan: '100912345432' }
+    { id: '1', name: 'Sarah Chen', email: 'sarah@aurhr.com', role: 'Engineering Director', location: 'San Francisco, CA', salary: 4200000, state: 'Maharashtra', taxRegime: 'new', pan: 'ABCPS1234A', uan: '100208765432' },
+    { id: '2', name: 'Rahul Verma', email: 'rahul@aurhr.com', role: 'Product Manager', location: 'Bengaluru, KA', salary: 2800000, state: 'Karnataka', taxRegime: 'new', pan: 'AABPV4321B', uan: '100298765001' },
+    { id: '3', name: 'Anita Desai', email: 'anita@aurhr.com', role: 'HR Business Partner', location: 'Mumbai, MH', salary: 1800000, state: 'Maharashtra', taxRegime: 'old', pan: 'AAAPD5678C', uan: '100312345009' },
+    { id: '4', name: 'David Kim', email: 'david@aurhr.com', role: 'Backend Engineer', location: 'Hyderabad, TS', salary: 2200000, state: 'Maharashtra', taxRegime: 'new', pan: 'ABCDK8765D', uan: '100412345678' },
+    { id: '5', name: 'Sandeep Varma', email: 'sandeep.varma@aurhr.com', role: 'Senior VLSI Engineer', location: 'Bengaluru, KA', salary: 3600000, state: 'Karnataka', taxRegime: 'new', pan: 'AADSV9012E', uan: '100512349876' },
+    { id: '6', name: 'Megha Iyer', email: 'megha.iyer@aurhr.com', role: 'HR Compliance Specialist', location: 'Chennai, TN', salary: 1600000, state: 'Tamil Nadu', taxRegime: 'old', pan: 'AAFMI6543F', uan: '100612348765' },
+    { id: '7', name: 'Karan Bir Singh', email: 'karan.singh@aurhr.com', role: 'Digital Logic Designer', location: 'Chandigarh, PB', salary: 1400000, state: 'Maharashtra', taxRegime: 'new', pan: 'AAGKS2109G', uan: '100712347654' },
+    { id: '8', name: 'Tanvi Gupta', email: 'tanvi.gupta@aurhr.com', role: 'Systems Analyst', location: 'New Delhi, DL', salary: 2100000, state: 'Maharashtra', taxRegime: 'old', pan: 'AAHGT7654H', uan: '100812346543' },
+    { id: '9', name: 'Amitabh Das', email: 'amitabh.das@aurhr.com', role: 'Project Lead — Infrastructure', location: 'Hyderabad, TS', salary: 4500000, state: 'Maharashtra', taxRegime: 'new', pan: 'AAIAD3210I', uan: '100912345432' }
   ];
 
   db.activities = [

@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPlus, Building2, User, Eye, EyeOff, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { moodleSignup } from '@/lib/moodle';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Role = 'organization' | 'candidate';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { isAuthenticated, userRole, isLoading } = useAuth();
   const [role, setRole] = useState<Role>('candidate');
   const [formData, setFormData] = useState({
     firstname: '',
@@ -24,6 +26,13 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Auto-redirect already authenticated users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && userRole) {
+      router.replace(userRole === 'organization' ? '/org' : '/candidate');
+    }
+  }, [isAuthenticated, userRole, isLoading, router]);
 
   function updateField(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -47,7 +56,7 @@ export default function SignupPage() {
 
     try {
       await moodleSignup({
-        username: formData.email.split('@')[0], // Use email prefix as username.
+        username: formData.email.toLowerCase(), // Use full email address lowercase as username.
         password: formData.password,
         firstname: formData.firstname,
         lastname: formData.lastname,
@@ -57,7 +66,7 @@ export default function SignupPage() {
       });
 
       setSuccess(true);
-      setTimeout(() => router.push('/login'), 2000);
+      setTimeout(() => router.replace('/login'), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Signup failed. Please try again.');
     } finally {

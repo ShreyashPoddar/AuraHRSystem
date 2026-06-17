@@ -18,7 +18,10 @@ class set_availability extends external_api {
                     'end_time'      => new external_value(PARAM_TEXT, 'HH:MM'),
                     'recurring'     => new external_value(PARAM_INT, '1 for recurring, 0 for specific date'),
                     'specific_date' => new external_value(PARAM_INT, 'Unix timestamp for specific date, 0 if recurring', VALUE_DEFAULT, 0),
-                ])
+                ]),
+                'List of slots',
+                VALUE_DEFAULT,
+                []
             ),
         ]);
     }

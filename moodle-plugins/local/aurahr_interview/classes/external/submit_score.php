@@ -43,8 +43,7 @@ class submit_score extends external_api {
         if ($app) {
             $app->interview_score = $params['interviewer_score'];
             // Recalculate overall.
-            $scores = array_filter([$app->jd_score, $app->academia_score, $app->interview_score], fn($s) => $s > 0);
-            $app->overall_score = !empty($scores) ? array_sum($scores) / count($scores) : 0;
+            $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
             $app->timemodified = time();
             $DB->update_record('local_aurahr_applications', $app);
         }

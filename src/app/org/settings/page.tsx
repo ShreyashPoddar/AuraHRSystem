@@ -46,7 +46,9 @@ export default function OrgSettingsPage() {
     autoScreen: true,
     malpractice: true,
     autoReject: false,
-    requireSocials: false
+    requireSocials: false,
+    githubFallback: 60,
+    leetcodeFallback: 60
   });
 
   const [notifs, setNotifs] = useState({
@@ -62,7 +64,14 @@ export default function OrgSettingsPage() {
         const res = await moodleCall<any>('local_aurahr_jobs_get_org_config');
         const data = JSON.parse(res.data || '{}');
         if (data.formData) setFormData(data.formData);
-        if (data.recruitment) setRecruitment(data.recruitment);
+        if (data.recruitment) {
+          setRecruitment(prev => ({
+            ...prev,
+            ...data.recruitment,
+            githubFallback: data.recruitment.githubFallback !== undefined ? Number(data.recruitment.githubFallback) : 60,
+            leetcodeFallback: data.recruitment.leetcodeFallback !== undefined ? Number(data.recruitment.leetcodeFallback) : 60,
+          }));
+        }
         if (data.notifs) setNotifs(data.notifs);
       } catch (err) {
         console.error('Failed to load settings', err);
@@ -121,7 +130,7 @@ export default function OrgSettingsPage() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-2">Company Legal Name</label>
-                  <input type="text" className="input-field" placeholder="e.g. NexusHR Global Pvt Ltd" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} required />
+                  <input type="text" className="input-field" placeholder="e.g. aurhr Global Pvt Ltd" value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} required />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-5">
@@ -218,9 +227,37 @@ export default function OrgSettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-ink text-sm">Social Profile Analysis Lock</p>
-                    <p className="text-ink/50 text-xs mt-0.5">Require GitHub/LinkedIn analysis before shortlisting</p>
+                    <p className="text-ink/50 text-xs mt-0.5">Require GitHub/LeetCode analysis before shortlisting</p>
                   </div>
                   <ToggleSwitch isOn={recruitment.requireSocials} onToggle={() => setRecruitment({...recruitment, requireSocials: !recruitment.requireSocials})} />
+                </div>
+
+                {/* Fallback settings */}
+                <div className="mt-6 pt-6 border-t border-ink/5 space-y-4">
+                  <h3 className="text-xs font-bold text-ink/40 uppercase tracking-wider mb-2">Social Analysis Fallback Scores</h3>
+                  <p className="text-xs text-ink/50 mb-4">Set the baseline scores assigned when a candidate's profile is gated, rate-limited, or empty.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-ink/60 mb-1.5">GitHub Fallback</label>
+                      <input 
+                        type="number" 
+                        min="0" max="100" 
+                        className="input-field py-2 text-center font-mono" 
+                        value={recruitment.githubFallback} 
+                        onChange={e => setRecruitment({...recruitment, githubFallback: Math.min(100, Math.max(0, Number(e.target.value)))})} 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-ink/60 mb-1.5">LeetCode Fallback</label>
+                      <input 
+                        type="number" 
+                        min="0" max="100" 
+                        className="input-field py-2 text-center font-mono" 
+                        value={recruitment.leetcodeFallback} 
+                        onChange={e => setRecruitment({...recruitment, leetcodeFallback: Math.min(100, Math.max(0, Number(e.target.value)))})} 
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-ink/5">

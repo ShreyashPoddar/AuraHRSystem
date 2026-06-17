@@ -1,0 +1,55 @@
+The USER performed the following action:
+Show the contents of file c:\Users\shrey\Desktop\AuraHR\AuraHR\src\app\candidate\test\[id]\page.tsx from lines 792 to 838
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 935
+Total Bytes: 41823
+Showing lines 792 to 838
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+792:                     ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+793:                     : 'bg-ink/10 text-ink/30 cursor-not-allowed'}`}
+794:               >
+795:                 {micPass ? 'Confirm Mic ✓' : 'Speak to Continue'}
+796:               </button>
+797:             </div>
+798:           </motion.div>
+799:         </div>
+800:       )}
+801:     </div>
+802:   );
+803: 
+804:   
+805: 
+806:   // ── Active test ────────────────────────────────────────────────────────
+807:   return (
+808:     <div className="fixed inset-0 bg-cream z-50 overflow-y-auto p-8 pt-12">
+809:       <div className="max-w-4xl mx-auto flex gap-8">
+810:         {/* Timer UI */}
+811:         <div className="text-xl font-bold text-ink mb-4 text-center w-full">
+812:           Time left: {formatTime(timeLeft)}
+813:         </div>
+814: 
+815:         {/* Question nav + Timer */}
+816:         <div className="w-64 shrink-0">
+817:           <div className="bento-card p-5 sticky top-6 space-y-4">
+818: 
+819:             {/* ── Countdown Timer ── */}
+820:             <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-mono font-bold text-2xl
+821:               ${timeLeft <= 60
+822:                 ? 'bg-red-100 text-red-600 animate-pulse'
+823:                 : timeLeft <= 300
+824:                   ? 'bg-amber-50 text-amber-600'
+825:                   : 'bg-ink/5 text-ink'}`}>
+826:               <Clock size={18} className="shrink-0" />
+827:               {formatTime(timeLeft)}
+828:             </div>
+829: 
+830:             {violationCount > 0 && (
+831:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+832:                 ${flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+833:                 <ShieldAlert size={14} />
+834:                 {violationCount} Violation{violationCount !== 1 ? 's' : ''}
+835:                 {flagged ? ' — FLAGGED' : ''}
+836:               </div>
+837:             )}
+838:             <div className="grid grid-cols-4 gap-2">
+

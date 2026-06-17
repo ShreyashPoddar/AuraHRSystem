@@ -377,7 +377,7 @@ export default function ExperimentDashboard() {
           <div>
             <Link href="/" className="inline-flex items-center space-x-2 text-ink/60 hover:text-ink transition-colors mb-4 text-sm font-medium">
               <ArrowRight className="w-4 h-4 rotate-180" />
-              <span>Back to NexusHR</span>
+              <span>Back to aurhr</span>
             </Link>
             <h1 className="font-serif text-4xl md:text-5xl font-medium text-ink flex items-center gap-3">
               <Sparkles className="text-gold w-8 h-8" />
