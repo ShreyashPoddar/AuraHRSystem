@@ -8,6 +8,7 @@ import {
   Loader2, Briefcase, ChevronRight, Check, Play, Video
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
+import { getStageBadgeClass, getStageLabel, normaliseLegacyStage, PIPELINE_STAGES, STAGE_META } from '@/lib/pipeline';
 
 interface Application {
   id: number;
@@ -30,15 +31,7 @@ interface Application {
   assessment_status?: string;
 }
 
-const stageConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  applied:   { label: 'Applied',          icon: <Clock size={14} />,        color: 'bg-blue-500/15 text-blue-700 border-blue-200' },
-  screened:  { label: 'Under Review',     icon: <FileText size={14} />,     color: 'bg-amber-500/15 text-amber-700 border-amber-200' },
-  academia:  { label: 'Assessment',       icon: <FileText size={14} />,     color: 'bg-purple-500/15 text-purple-700 border-purple-200' },
-  interview: { label: 'Interview',        icon: <Briefcase size={14} />,   color: 'bg-gold/15 text-gold border-gold/30' },
-  offer:     { label: 'Offer',            icon: <CheckCircle size={14} />, color: 'bg-sage/15 text-sage border-sage/30' },
-  selected:  { label: 'Selected',         icon: <CheckCircle size={14} />, color: 'bg-emerald-500/15 text-emerald-700 border-emerald-200' },
-  rejected:  { label: 'Rejected',         icon: <XCircle size={14} />,     color: 'bg-rust/15 text-rust border-rust/30' },
-};
+
 
 export default function MyApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -73,14 +66,14 @@ export default function MyApplicationsPage() {
           // Smart default: prioritize apps with live/scheduled assessments
           const now = Math.floor(Date.now() / 1000);
           const liveApp = apps.find(a =>
-            a.stage === 'academia' &&
+            ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(normaliseLegacyStage(a.stage)) &&
             a.assessment_id && a.assessment_id > 0 &&
             a.assessment_start_time && a.assessment_end_time &&
             now >= a.assessment_start_time && now <= a.assessment_end_time &&
             ['scheduled', 'active'].includes(a.assessment_status || '')
           );
           const scheduledApp = apps.find(a =>
-            a.stage === 'academia' &&
+            ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(normaliseLegacyStage(a.stage)) &&
             a.assessment_id && a.assessment_id > 0 &&
             a.assessment_start_time && a.assessment_start_time > 0 &&
             ['scheduled', 'active'].includes(a.assessment_status || '')
@@ -173,8 +166,7 @@ export default function MyApplicationsPage() {
             applications.map(app => {
               const isActive = app.id === selectedAppId;
               const isFinalized = !!app.job_is_finalized;
-              const displayStage = isFinalized ? app.stage : (app.stage === 'applied' ? 'applied' : 'screened');
-              const stage = stageConfig[displayStage] || { label: displayStage, icon: <Clock size={14} />, color: 'bg-ink/5 text-ink/50' };
+              const displayStage = normaliseLegacyStage(app.stage);
               const now = Math.floor(Date.now() / 1000);
               const hasLiveTest = !!(app.assessment_id && app.assessment_id > 0 &&
                 app.assessment_start_time && app.assessment_end_time &&
@@ -183,7 +175,7 @@ export default function MyApplicationsPage() {
               const hasScheduledTest = !!(app.assessment_id && app.assessment_id > 0 &&
                 app.assessment_start_time && app.assessment_start_time > 0 &&
                 ['scheduled', 'active'].includes(app.assessment_status || '') &&
-                app.stage === 'academia');
+                ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(displayStage));
               
               return (
                 <button
@@ -197,8 +189,8 @@ export default function MyApplicationsPage() {
                     {app.job_title}
                   </h3>
                   <div className="flex items-center justify-between mt-2">
-                    <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${stage.color}`}>
-                      {stage.icon} {stage.label}
+                    <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${getStageBadgeClass(app.stage)}`}>
+                      {getStageLabel(app.stage)}
                     </span>
                     <span className="text-[10px] text-ink/40 font-mono">{formatDate(app.timecreated)}</span>
                   </div>
@@ -284,7 +276,7 @@ export default function MyApplicationsPage() {
                                   </p>
                                 </>
                               ) : (
-                                ['screened', 'academia', 'interview', 'offer', 'selected'].includes(selectedApp.stage) ? (
+                                !['Imported', 'Under AI Screening'].includes(normaliseLegacyStage(selectedApp.stage)) ? (
                                   <>
                                     <p className="text-sm text-ink/60">Your resume matched highly with the core requirements.</p>
                                     <p className="text-sm font-semibold text-emerald-600 mt-1 flex items-center gap-1">
@@ -356,16 +348,17 @@ export default function MyApplicationsPage() {
 
                     {activeTab === 'academia' && (() => {
                       const isJdFinal = !!job?.jd_analysis?.is_finalized;
-                      const isScreenedOrBeyond = ['screened', 'academia', 'interview', 'offer', 'selected', 'rejected'].includes(selectedApp.stage);
+                      const isScreenedOrBeyond = !['Imported', 'Under AI Screening'].includes(normaliseLegacyStage(selectedApp.stage));
                       const now = Math.floor(Date.now() / 1000);
                       const isScheduled = !!(assessment && assessment.start_time > 0 && ['scheduled', 'active', 'ended'].includes(assessment.status));
                       const isTestLive = !!(isScheduled && now >= assessment.start_time && now <= assessment.end_time);
                       const hasScore = selectedApp.academia_score !== null && selectedApp.academia_score !== undefined;
 
                       // Stage-based result (organizer selects top N — no fixed pass mark)
-                      const selectedForInterview = ['interview', 'offer', 'selected'].includes(selectedApp.stage);
-                      const rejectedAfterAcademia = selectedApp.stage === 'rejected' && hasScore;
-                      const waitingForResult = hasScore && selectedApp.stage === 'academia';
+                      const normStage = normaliseLegacyStage(selectedApp.stage);
+                      const selectedForInterview = ['Assessment Cleared', 'Screening Scheduled', 'Screening Cleared', 'Hired / Offer stage'].includes(normStage);
+                      const rejectedAfterAcademia = normStage === 'Rejected' && hasScore;
+                      const waitingForResult = hasScore && ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(normStage);
 
                       // Show result view whenever candidate has completed the test
                       if (hasScore || selectedForInterview) {
@@ -490,7 +483,8 @@ export default function MyApplicationsPage() {
                     {activeTab === 'interview' && (() => {
 
                       const isJdFinal = !!job?.jd_analysis?.is_finalized;
-                      const isInterviewQual = ['interview', 'offer', 'selected'].includes(selectedApp.stage);
+                      const normStage = normaliseLegacyStage(selectedApp.stage);
+                      const isInterviewQual = ['Screening Scheduled', 'Screening Cleared', 'Hired / Offer stage'].includes(normStage);
                       return (
                         <div className="bento-card p-6">
                           <h3 className="font-serif text-lg font-semibold text-ink mb-4">Interview Panel</h3>
@@ -500,7 +494,7 @@ export default function MyApplicationsPage() {
                             </div>
                           ) : !isInterviewQual ? (
                             <p className="text-ink/50 text-sm">
-                              {['applied', 'rejected'].includes(selectedApp.stage)
+                              {['Imported', 'Rejected'].includes(normStage)
                                 ? "You did not qualify for this round."
                                 : "The Interview Round will be scheduled once you qualify from the Academia Round."}
                             </p>
@@ -546,7 +540,7 @@ export default function MyApplicationsPage() {
 
                     {activeTab === 'result' && (
                       <div className="bento-card p-6 text-center">
-                        {selectedApp.stage === 'selected' ? (
+                        {normaliseLegacyStage(selectedApp.stage) === 'Hired / Offer stage' ? (
                           <div className="py-8">
                             <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
                               <CheckCircle size={32} />
@@ -554,7 +548,7 @@ export default function MyApplicationsPage() {
                             <h3 className="font-serif text-2xl font-bold text-ink mb-2">Congratulations!</h3>
                             <p className="text-sm text-ink/60">You have been selected for this position. The HR team will contact you shortly.</p>
                           </div>
-                        ) : selectedApp.stage === 'rejected' ? (
+                        ) : normaliseLegacyStage(selectedApp.stage) === 'Rejected' ? (
                           <div className="py-8">
                             <div className="w-16 h-16 bg-rust/10 text-rust rounded-full flex items-center justify-center mx-auto mb-4">
                               <XCircle size={32} />

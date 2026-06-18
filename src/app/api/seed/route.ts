@@ -24,7 +24,7 @@ export async function POST() {
   ];
 
   // 10 Indian candidates
-  db.candidates = [
+  db.candidates = ([ // eslint-disable-line @typescript-eslint/no-explicit-any
     { id: 'c1', name: 'Arjun Mehta', role: 'Senior Frontend Engineer', status: 'Offer', matchPercent: 97, matchTags: ['React', 'TypeScript', 'System Design'], phone: '+91-98201-34567', education: 'B.Tech Computer Science', institute: 'IIT Bombay', aiInterviewScore: 92, salaryExpectation: 2800000, source: 'LinkedIn', gender: 'Male', score: { technical: 95, culture: 88, communication: 92, leadership: 85, adaptability: 90 }, interviewLogs: [], assessments: [] },
     { id: 'c2', name: 'Priya Sharma', role: 'Product Designer', status: 'Interview', matchPercent: 93, matchTags: ['Figma', 'UX Research', 'Prototyping'], phone: '+91-99103-56789', education: 'B.Des', institute: 'NID Ahmedabad', aiInterviewScore: 88, salaryExpectation: 1800000, source: 'Naukri', gender: 'Female', score: { technical: 88, culture: 96, communication: 94, leadership: 80, adaptability: 91 }, interviewLogs: [], assessments: [] },
     { id: 'c3', name: 'Ishaan Nair', role: 'Full Stack Developer', status: 'Interview', matchPercent: 89, matchTags: ['Node.js', 'React', 'PostgreSQL'], phone: '+91-97034-87654', education: 'B.Tech IT', institute: 'NIT Trichy', aiInterviewScore: 85, salaryExpectation: 2200000, source: 'Referral', gender: 'Male', score: { technical: 90, culture: 85, communication: 88, leadership: 78, adaptability: 87 }, interviewLogs: [], assessments: [] },
@@ -53,7 +53,7 @@ export async function POST() {
     { id: 'c26', name: 'Nikhil Kamath', role: 'Digital Design Engineer', status: 'Applied', matchPercent: 88, matchTags: ['VLSI', 'Verilog', 'SystemVerilog', 'Digital Design', 'FPGA', 'Cadence', 'RTL'], phone: '+91-98765-11223', education: 'M.Tech VLSI Design', institute: 'IIT Bangalore', aiInterviewScore: 84, salaryExpectation: 2850000, source: 'LinkedIn', gender: 'Male', score: { technical: 91, culture: 82, communication: 80, leadership: 72, adaptability: 85 }, interviewLogs: [], assessments: [] },
     { id: 'c27', name: 'Sanya Malhotra', role: 'VLSI Verification Engineer', status: 'Applied', matchPercent: 83, matchTags: ['Verification', 'UVM', 'SystemVerilog', 'Synopsys', 'ModelSim', 'DFT', 'STA'], phone: '+91-97890-44556', education: 'B.Tech ECE', institute: 'NIT Warangal', aiInterviewScore: 79, salaryExpectation: 1950000, source: 'Naukri', gender: 'Female', score: { technical: 87, culture: 85, communication: 83, leadership: 68, adaptability: 84 }, interviewLogs: [], assessments: [] },
     { id: 'c28', name: 'Ritesh Agarwal', role: 'Analog Layout Engineer', status: 'Applied', matchPercent: 85, matchTags: ['Analog Design', 'Analog Layout', 'Cadence', 'Spectre', 'Calibre', 'VLSI', 'Physical Design'], phone: '+91-96012-77889', education: 'M.Tech Microelectronics', institute: 'IIT Delhi', aiInterviewScore: 81, salaryExpectation: 3200000, source: 'Referral', gender: 'Male', score: { technical: 89, culture: 81, communication: 78, leadership: 74, adaptability: 83 }, interviewLogs: [], assessments: [] }
-  ];
+  ] as any[]);
 
   db.jobDescriptions = [
     {

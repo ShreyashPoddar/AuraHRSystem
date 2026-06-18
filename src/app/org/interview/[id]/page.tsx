@@ -559,9 +559,9 @@ export default function OrgInterviewPage() {
 
       // 2. Update pipeline stage
       let stage = '';
-      if (decision === 'select') stage = 'selected';
-      else if (decision === 'reject') stage = 'rejected';
-      else stage = 'interview';
+      if (decision === 'select') stage = 'Hired / Offer stage';
+      else if (decision === 'reject') stage = 'Rejected';
+      else stage = 'On Hold';
 
       await moodleCall('local_aurahr_jobs_update_stage', {
         applicationid: appId,

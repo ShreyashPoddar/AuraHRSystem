@@ -4,11 +4,21 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, ArrowUpDown, Users, AlertTriangle,
-  Loader2, Star, Eye, X, Mail, Phone, MapPin, Briefcase, GraduationCap, Code, Video,
-  FileText, ChevronRight, RefreshCw
+  Loader2, X, Mail, Phone, MapPin, GraduationCap, Code, Video,
+  FileText, ChevronRight, RefreshCw, ShieldAlert, PauseCircle
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import RadarChart from '@/components/RadarChart';
+import {
+  STAGE_META,
+  getManualMoveOptions,
+  type PipelineStage,
+  PIPELINE_STAGES,
+  normaliseLegacyStage,
+  getMacroGroup,
+  MACRO_PIPELINE,
+  isOverrideOption,
+} from '@/lib/pipeline';
 
 interface Application {
   rank: number;
@@ -67,17 +77,40 @@ interface ApplicationDetail {
   timemodified: number;
 }
 
-const STAGES = ['applied', 'screened', 'academia', 'interview', 'offer', 'selected', 'rejected'];
+// ── Stage helpers (sourced from central pipeline module) ────────────
 
-const stageColors: Record<string, string> = {
-  applied: 'bg-blue-500/15 text-blue-700 border-blue-200',
-  screened: 'bg-amber-500/15 text-amber-700 border-amber-200',
-  academia: 'bg-purple-500/15 text-purple-700 border-purple-200',
-  interview: 'bg-gold/15 text-gold border-gold/30',
-  offer: 'bg-sage/15 text-sage border-sage/30',
-  selected: 'bg-emerald-500/15 text-emerald-700 border-emerald-200',
-  rejected: 'bg-rust/15 text-rust border-rust/30',
-};
+/**
+ * Returns badge classes for any stage string.
+ * Normalises legacy Moodle lowercase stages to the 12-stage enum first.
+ */
+function getStageBadgeClass(stage: string): string {
+  const normalised = normaliseLegacyStage(stage);
+  return STAGE_META[normalised]?.badgeClass ?? 'bg-ink/5 text-ink/50 border-ink/10';
+}
+
+/**
+ * Returns the human-readable label for any stage string.
+ */
+function getStageLabel(stage: string): string {
+  const normalised = normaliseLegacyStage(stage);
+  return STAGE_META[normalised]?.label ?? stage;
+}
+
+/**
+ * Returns tooltip for automated/restricted stages.
+ */
+function getStageTooltip(stage: string): string | undefined {
+  const normalised = normaliseLegacyStage(stage);
+  const meta = STAGE_META[normalised];
+  if (!meta) return undefined;
+  if (normalised === 'Imported' || normalised === 'Under AI Screening') {
+    return 'AI is evaluating this candidate — only Reject or Hold overrides are allowed.';
+  }
+  if (normalised === 'Assessment In Progress' || normalised === 'Assessment Completed') {
+    return 'Moodle owns this transition. Only Reject or Hold overrides are available.';
+  }
+  return undefined;
+}
 
 function formatDate(ts: number) {
   if (!ts) return '—';
@@ -195,7 +228,7 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
         </div>
       </div>
 
-      {/* Pipeline chips */}
+      {/* Pipeline chips — grouped by macro stage */}
       {stageCounts.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <button
@@ -210,13 +243,13 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
             <button
               key={s.stage}
               onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
                 stageFilter === s.stage
-                  ? stageColors[s.stage] || 'bg-ink text-cream border-ink'
+                  ? getStageBadgeClass(s.stage)
                   : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
               }`}
             >
-              {s.stage} ({s.count})
+              {getStageLabel(s.stage)} ({s.count})
             </button>
           ))}
         </div>
@@ -329,9 +362,15 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
                     {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg capitalize whitespace-nowrap ${stageColors[app.stage] || 'bg-ink/5 text-ink/50'}`}>
-                      {app.stage}
-                    </span>
+                    {/* Micro-stage badge with animated dot for live states */}
+                    <div className="flex items-center gap-2">
+                      {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
+                        <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                      )}
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${getStageBadgeClass(app.stage)}`}>
+                        {getStageLabel(app.stage)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-5 py-4 text-center whitespace-nowrap">
                     {app.malpractice >= 5 ? (
@@ -467,25 +506,57 @@ function CandidateDetailPopup({
                     <ChevronRight size={14} className={`transition-transform ${showDropdown ? 'rotate-90' : ''}`} />
                   </button>
                   <AnimatePresence>
-                    {showDropdown && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-48 bg-white border border-ink/10 rounded-xl shadow-xl overflow-hidden z-10"
-                      >
-                        <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5">Move to stage</div>
-                        {STAGES.filter(s => s !== app.stage).map(s => (
-                          <button
-                            key={s}
-                            onClick={() => moveStage(s)}
-                            className="w-full text-left px-4 py-2.5 text-sm font-semibold capitalize hover:bg-sage/10 hover:text-sage transition-colors"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
+                    {showDropdown && (() => {
+                      const options = getManualMoveOptions(app.stage);
+                      const forwardOptions = options.filter(s => !isOverrideOption(s));
+                      const overrideOptions = options.filter(s => isOverrideOption(s));
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute right-0 mt-2 w-56 bg-white border border-ink/10 rounded-xl shadow-xl overflow-hidden z-10"
+                        >
+                          {/* Forward stage options */}
+                          {forwardOptions.length > 0 && (
+                            <>
+                              <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5">Move to stage</div>
+                              {forwardOptions.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => moveStage(s)}
+                                  className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-sage/10 hover:text-sage flex items-center gap-2"
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[s]?.dotClass ?? 'bg-ink/20'}`} />
+                                  {STAGE_META[s]?.label ?? s}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                          {/* Always-available override exits */}
+                          {overrideOptions.length > 0 && (
+                            <>
+                              <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5 border-t border-ink/5">
+                                Override
+                              </div>
+                              {overrideOptions.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => moveStage(s)}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${
+                                    STAGE_META[s]?.terminal
+                                      ? 'text-red-600 hover:bg-red-50'
+                                      : 'text-zinc-600 hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                        </motion.div>
+                      );
+                    })()}
                   </AnimatePresence>
                 </div>
                 <button onClick={onClose} className="p-2 rounded-xl hover:bg-ink/5 text-ink/40 transition-colors">
@@ -498,9 +569,16 @@ function CandidateDetailPopup({
             <div className="flex items-center justify-between p-4 bg-warm-sand/30 rounded-2xl border border-ink/5">
               <div>
                 <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-1">Pipeline Stage</p>
-                <span className={`text-sm font-bold px-3 py-1 rounded-lg capitalize ${stageColors[app.stage] || 'bg-ink/5 text-ink/50'}`}>
-                  {app.stage}
+                {/* Micro stage badge */}
+                <span className={`text-sm font-bold px-3 py-1.5 rounded-lg border inline-flex items-center gap-2 ${getStageBadgeClass(app.stage)}`}>
+                  {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                  )}
+                  {getStageLabel(app.stage)}
                 </span>
+                {getStageTooltip(app.stage) && (
+                  <p className="text-[10px] text-ink/40 mt-1 max-w-[220px] leading-snug">{getStageTooltip(app.stage)}</p>
+                )}
               </div>
               {app.malpractice >= 5 ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-rust/10 border border-rust/20 rounded-lg text-rust">
@@ -613,7 +691,7 @@ function CandidateDetailPopup({
             )}
 
             {/* Join Interview Button */}
-            {app.stage === 'interview' && (
+            {app.stage === 'Screening Scheduled' && (
               <div className="pt-2 border-t border-ink/10">
                 <button 
                   onClick={() => window.location.href = `/org/interview/${app.id}`}

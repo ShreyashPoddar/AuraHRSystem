@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import { useAuth } from '@/contexts/AuthContext';
+import { getStageBadgeClass, getStageLabel, normaliseLegacyStage } from '@/lib/pipeline';
 
 interface Application {
   id: number;
@@ -30,25 +31,6 @@ interface Application {
   interview_score?: number | null;
 }
 
-const stageColors: Record<string, string> = {
-  applied: 'bg-blue-500/15 text-blue-700',
-  screened: 'bg-amber-500/15 text-amber-700',
-  academia: 'bg-purple-500/15 text-purple-700',
-  interview: 'bg-gold/15 text-gold',
-  offer: 'bg-sage/15 text-sage',
-  selected: 'bg-emerald-500/15 text-emerald-700',
-  rejected: 'bg-rust/15 text-rust',
-};
-
-const stageLabels: Record<string, string> = {
-  applied: 'Application Submitted',
-  screened: 'Under Review',
-  academia: 'Assessment Round',
-  interview: 'Interview Scheduled',
-  offer: 'Offer Stage',
-  selected: 'Congratulations! Selected',
-  rejected: 'Not Selected',
-};
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -88,8 +70,8 @@ export default function CandidateDashboard() {
     load();
   }, [user]);
 
-  const activeApps = applications.filter(a => !['rejected', 'selected'].includes(a.stage));
-  const completedApps = applications.filter(a => ['rejected', 'selected'].includes(a.stage));
+  const activeApps = applications.filter(a => !['Rejected', 'Hired / Offer stage', 'On Hold'].includes(normaliseLegacyStage(a.stage)));
+  const completedApps = applications.filter(a => ['Rejected', 'Hired / Offer stage', 'On Hold'].includes(normaliseLegacyStage(a.stage)));
 
   function formatDate(ts: number) {
     if (!ts) return '—';
@@ -193,17 +175,17 @@ export default function CandidateDashboard() {
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
                         !app.job_is_finalized 
                           ? 'bg-amber-500/15 text-amber-700' 
-                          : stageColors[app.stage]
+                          : getStageBadgeClass(app.stage)
                       }`}>
                         {!app.job_is_finalized 
                           ? 'Decision Pending' 
-                          : (stageLabels[app.stage] || app.stage)}
+                          : getStageLabel(app.stage)}
                       </span>
                     </div>
-                    {!!app.job_is_finalized && app.stage === 'screened' && (
+                    {!!app.job_is_finalized && normaliseLegacyStage(app.stage) === 'Shortlisted' && (
                        <span className="text-[10px] font-bold text-sage bg-sage/10 px-2 py-0.5 rounded">Shortlisted! Awaiting test schedule.</span>
                     )}
-                    {!!app.job_is_finalized && app.stage === 'academia' && (
+                    {!!app.job_is_finalized && ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(normaliseLegacyStage(app.stage)) && (
                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded flex items-center gap-1">
                          <AlertTriangle size={10} /> Test Scheduled! Check below.
                        </span>
@@ -227,7 +209,7 @@ export default function CandidateDashboard() {
           <div className="space-y-3">
             {(() => {
               const scheduledTests = applications.filter(a => 
-                a.stage === 'academia' && 
+                ['Assessment Invited', 'Assessment In Progress', 'Assessment Completed'].includes(normaliseLegacyStage(a.stage)) && 
                 (a.academia_score === null || a.academia_score === undefined) &&
                 !!a.job_is_finalized &&
                 !!a.assessment_id && 
@@ -336,8 +318,8 @@ export default function CandidateDashboard() {
                   <p className="text-xs text-ink/50 mt-0.5">Finished {formatDate(app.timecreated)}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${stageColors[app.stage]}`}>
-                    {stageLabels[app.stage] || app.stage}
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${getStageBadgeClass(app.stage)}`}>
+                    {getStageLabel(app.stage)}
                   </span>
                   <Link href={`/candidate/applications/${app.id}`} className="text-blue-500 hover:text-blue-600 flex items-center">
                     <ArrowRight size={16} />

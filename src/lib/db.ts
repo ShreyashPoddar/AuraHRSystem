@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import type { PipelineStage } from '@/lib/pipeline';
 
 const DB_PATH = path.join(process.cwd(), 'dev-db.json');
 
@@ -32,7 +33,8 @@ export type AcademicAssessment = {
 
 export type Candidate = {
   id: string; name: string; role: string;
-  status: 'Applied' | 'Screened' | 'Interview' | 'Offer' | 'Rejected';
+  /** Granular 12-stage internal pipeline stage. */
+  status: PipelineStage;
   score: CandidateScore; matchPercent: number; matchTags: string[];
   phone?: string; education?: string; institute?: string;
   aiInterviewScore?: number; academiaScore?: number; salaryExpectation?: number;
@@ -43,6 +45,8 @@ export type Candidate = {
   recruiterRating?: number;
   recruiterFeedback?: string;
   aiSummary?: string;
+  /** Audit trail of stage transitions. */
+  stageHistory?: Array<{ from: string; to: string; timestamp: string; actor?: string; reason?: string }>;
 };
 
 export type JobDescription = {

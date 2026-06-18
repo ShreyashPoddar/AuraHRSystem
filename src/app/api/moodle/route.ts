@@ -119,7 +119,7 @@ async function handleLogin(username: string, password: string) {
 
   // Step 2: Fetch user profile using the token.
   const profileUrl = new URL(`${MOODLE_URL}/webservice/rest/server.php`);
-  profileUrl.searchParams.set('wstoken', token);
+  profileUrl.searchParams.set('wstoken', token as string);
   profileUrl.searchParams.set('wsfunction', 'core_webservice_get_site_info');
   profileUrl.searchParams.set('moodlewsrestformat', 'json');
 
@@ -131,10 +131,14 @@ async function handleLogin(username: string, password: string) {
   }
 
   // Step 3: Fetch extended profile to get 'department' (which we use as role).
-  // NOTE: 'values[0]' must be kept as a raw bracket-notation key — URLSearchParams
-  // would encode it to 'values%5B0%5D' which Moodle would not recognise.
+  // IMPORTANT: We use ADMIN_TOKEN here, NOT the user's own token.
+  // The user's token is scoped to the 'aurahr_user' service which only has
+  // core_webservice_get_site_info + local_aurahr_jobs functions. Calling
+  // core_user_get_users_by_field with the user's token returns an access error
+  // (not an array), so Array.isArray() fails and role always defaults to 'candidate'.
+  // The admin token has unrestricted access and solves this cleanly.
   const userQs = [
-    `wstoken=${encodeURIComponent(token)}`,
+    `wstoken=${encodeURIComponent(ADMIN_TOKEN)}`,
     `wsfunction=core_user_get_users_by_field`,
     `moodlewsrestformat=json`,
     `field=id`,
@@ -143,13 +147,23 @@ async function handleLogin(username: string, password: string) {
   const userFullUrl = `${MOODLE_URL}/webservice/rest/server.php?${userQs}`;
 
   const userRes = await fetch(userFullUrl);
-  const userData = await userRes.json();
-  
-  let role = 'candidate'; // default
+  const userRawText = await userRes.text();
+  console.log('[Moodle Login] user profile raw response:', userRawText);
+
+  let userData: unknown;
+  try { userData = JSON.parse(userRawText); } catch { userData = null; }
+
+  let role = 'candidate'; // safe default
   if (Array.isArray(userData) && userData.length > 0) {
-    if (userData[0].department) {
-      role = userData[0].department;
+    const dept = (userData[0] as { department?: string }).department;
+    if (dept) {
+      role = dept;
+      console.log(`[Moodle Login] resolved role from department field: "${role}"`);
+    } else {
+      console.warn('[Moodle Login] department field is empty — defaulting to candidate');
     }
+  } else {
+    console.error('[Moodle Login] core_user_get_users_by_field did not return an array. Raw:', userRawText.substring(0, 300));
   }
 
   return NextResponse.json({
@@ -234,7 +248,7 @@ async function handleSignup(body: {
   }
 
   if (data && typeof data === 'object' && 'exception' in data) {
-    const errData = data as { message: string; debuginfo?: string };
+    const errData = data as unknown as { message: string; debuginfo?: string };
     console.error('[Moodle Signup Error]', errData.message, errData.debuginfo ?? '');
     return NextResponse.json({ error: errData.message }, { status: 400 });
   }

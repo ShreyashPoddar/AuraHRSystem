@@ -13,7 +13,12 @@ use core_external\external_value;
 class update_stage extends external_api {
 
     /** Valid pipeline stages in order. */
-    const VALID_STAGES = ['applied', 'screened', 'academia', 'interview', 'offer', 'selected', 'rejected'];
+    const VALID_STAGES = [
+        'Imported', 'Under AI Screening', 'Shortlisted', 'Screening Scheduled',
+        'Screening Cleared', 'Assessment Invited', 'Assessment In Progress',
+        'Assessment Completed', 'Assessment Cleared', 'Rejected', 'On Hold',
+        'Hired / Offer stage'
+    ];
 
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([

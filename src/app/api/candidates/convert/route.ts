@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb, saveDb } from '@/lib/db';
+import { notifyKekaCandidateImported } from '@/lib/keka';
 
 export async function POST(req: Request) {
   try {
@@ -47,11 +48,16 @@ export async function POST(req: Request) {
         ? skills.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean).slice(0, 5)
         : ['Unspecified'];
 
+      const newCandidateId = `csv_${Date.now()}_${i}`;
       db.candidates.push({
-        id: `csv_${Date.now()}_${i}`,
+        id: newCandidateId,
         name,
         role: role || 'Applicant',
-        status: 'Applied',
+        // Starts at 'Imported'. The AI Screening gate (JD Parser) will
+        // automatically transition to 'Under AI Screening' → Shortlisted /
+        // On Hold / Rejected based on the match score.
+        status: 'Imported',
+        stageHistory: [{ from: 'none', to: 'Imported', timestamp: new Date().toISOString(), actor: 'system', reason: `Imported via ${source}` }],
         matchPercent: Math.floor(60 + Math.random() * 30),
         matchTags: skillTags,
         phone,
@@ -71,6 +77,13 @@ export async function POST(req: Request) {
         pan
       } as any);
       added++;
+
+      // ── Keka Sync (Injection Point) ──────────────────────────────
+      // Fire-and-forget; logs the import source in Keka.
+      notifyKekaCandidateImported(newCandidateId, source).catch(
+        (err) => console.error('[Keka] notifyKekaCandidateImported failed:', err),
+      );
+      // ────────────────────────────────────────────────────────────
     }
 
     await saveDb(db);
