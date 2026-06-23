@@ -41,9 +41,9 @@ export default function VacanciesLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl h-full">
+    <div className="flex flex-row gap-6 max-w-7xl h-full">
       {/* Side Panel — Job List */}
-      <div className="w-80 shrink-0">
+      <div className="w-56 lg:w-80 shrink-0">
         <div className="bento-card overflow-hidden h-[calc(100vh-120px)] flex flex-col">
           <div className="px-5 py-4 border-b border-ink/8 shrink-0">
             <h2 className="font-serif text-lg font-semibold text-ink flex items-center gap-2">
@@ -108,7 +108,7 @@ export default function VacanciesLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto pr-2">
+      <div className="flex-1 min-w-0 overflow-y-auto pr-2">
         {children}
       </div>
     </div>

@@ -43,5 +43,27 @@ function xmldb_local_aurahr_jobs_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026052201, 'local', 'aurahr_jobs');
     }
 
+    if ($oldversion < 2026060400) {
+        $table = new xmldb_table('local_aurahr_applications');
+        $index = new xmldb_index('ix_stage', XMLDB_INDEX_NOTUNIQUE, ['stage']);
+
+        // 1. Drop the dependency index first.
+        if ($dbman->index_exists($table, $index)) {
+            $dbman->drop_index($table, $index);
+        }
+
+        // 2. Perform the column modification (changing precision as defined in install.xml).
+        $field = new xmldb_field('stage', XMLDB_TYPE_CHAR, '30', null, XMLDB_NOTNULL, null, 'applied', 'jobid');
+        $dbman->change_field_precision($table, $field);
+
+        // 3. Restore the index.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Savepoint reached.
+        upgrade_plugin_savepoint(true, 2026060400, 'local', 'aurahr_jobs');
+    }
+
     return true;
 }

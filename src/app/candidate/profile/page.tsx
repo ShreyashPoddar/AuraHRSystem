@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   User, Mail, Phone, MapPin, Briefcase, Upload,
@@ -24,8 +24,7 @@ export default function CandidateProfilePage() {
     tech_skills: '',
     nontech_skills: '',
     bio: '',
-    github: '',
-    leetcode: '',
+    resume_name: '',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,8 +47,7 @@ export default function CandidateProfilePage() {
             tech_skills: parsed.tech_skills || '',
             nontech_skills: parsed.nontech_skills || '',
             bio: parsed.bio || '',
-            github: parsed.github || '',
-            leetcode: parsed.leetcode || '',
+            resume_name: parsed.resume_name || '',
           }));
         }
       } catch (err) {
@@ -65,6 +63,71 @@ export default function CandidateProfilePage() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit.');
+      return;
+    }
+    setUploadingResume(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const result = e.target?.result as string;
+        // Strip the data URL prefix (e.g. data:application/pdf;base64,) to send pure base64
+        const base64data = result.includes(',') ? result.split(',')[1] : result;
+        
+        try {
+          // 1. Upload to Moodle
+          await moodleCall('local_aurahr_jobs_upload_resume', {
+            filename: file.name,
+            base64data
+          });
+
+          // 2. Update local state and Moodle user prefs JSON
+          const updatedForm = { ...form, resume_name: file.name };
+          setForm(updatedForm);
+
+          await moodleCall('local_aurahr_jobs_update_user_prefs', {
+            data: JSON.stringify(updatedForm)
+          });
+
+          alert('Resume uploaded and parsed successfully!');
+        } catch (err) {
+          console.error(err);
+          alert('Failed to upload/parse resume.');
+        } finally {
+          setUploadingResume(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert('Error reading file.');
+      setUploadingResume(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -72,11 +135,6 @@ export default function CandidateProfilePage() {
       // 1. Save all fields to Moodle user preferences
       await moodleCall('local_aurahr_jobs_update_user_prefs', {
         data: JSON.stringify(form)
-      });
-      // 2. Sync URLs to application records in Moodle database
-      await moodleCall('local_aurahr_jobs_update_candidate_urls', {
-        github_url: form.github,
-        leetcode_url: form.leetcode
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -212,25 +270,8 @@ export default function CandidateProfilePage() {
         <div>
           <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">Bio</label>
           <textarea value={form.bio} onChange={e => update('bio', e.target.value)}
-            placeholder="Tell recruiters about yourself, your experience, and what you're looking for..."
+            placeholder="Tell recruiters about yourself, your experience, and what's you're looking for..."
             rows={4} className="input-field resize-none" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">
-              <Link size={14} className="inline mr-1" /> GitHub
-            </label>
-            <input type="url" value={form.github} onChange={e => update('github', e.target.value)}
-              placeholder="https://github.com/..." className="input-field" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">
-              <Link size={14} className="inline mr-1" /> LeetCode
-            </label>
-            <input type="url" value={form.leetcode} onChange={e => update('leetcode', e.target.value)}
-              placeholder="https://leetcode.com/u/..." className="input-field" />
-          </div>
         </div>
 
         <motion.button
@@ -257,17 +298,65 @@ export default function CandidateProfilePage() {
           <Briefcase size={18} className="text-blue-500" />
           Resume
         </h3>
-        <div className="border-2 border-dashed border-ink/10 rounded-2xl p-8 text-center hover:border-blue-300 transition-colors cursor-pointer relative overflow-hidden group">
-          <div className="absolute inset-0 bg-blue-500/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
-          <Upload size={32} className="text-ink/20 mx-auto mb-3 group-hover:text-blue-500 transition-colors relative z-10" />
-          <p className="text-sm text-ink/40 relative z-10">
-            Drag & drop your resume here, or <span className="text-blue-500 font-medium">browse files</span>
-          </p>
-          <p className="text-xs text-ink/25 mt-1 relative z-10">PDF, DOC, DOCX (max 5MB)</p>
-          <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-600 rounded-full text-[10px] font-bold uppercase tracking-wider relative z-10">
-            <CheckCircle size={12} /> AWS AI OCR Active
+        
+        <input 
+          type="file"
+          ref={fileInputRef}
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              handleFile(e.target.files[0]);
+            }
+          }}
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+        />
+
+        {uploadingResume ? (
+          <div className="border-2 border-dashed border-blue-300 rounded-2xl p-8 text-center bg-blue-500/5">
+            <Loader2 size={32} className="animate-spin text-blue-500 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-ink">Uploading & Analyzing Resume...</p>
+            <p className="text-xs text-ink/40 mt-1">This might take a moment as our AI extracts skills and socials.</p>
           </div>
-        </div>
+        ) : form.resume_name ? (
+          <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700">
+                <Briefcase size={20} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-ink truncate max-w-xs sm:max-w-md">{form.resume_name}</p>
+                <p className="text-xs text-ink/40">Uploaded Resume</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-2 rounded-xl transition-all"
+            >
+              Replace File
+            </button>
+          </div>
+        ) : (
+          <div 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer relative overflow-hidden group ${
+              isDragging ? 'border-blue-500 bg-blue-500/5' : 'border-ink/10 hover:border-blue-300'
+            }`}
+          >
+            <div className="absolute inset-0 bg-blue-500/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+            <Upload size={32} className="text-ink/20 mx-auto mb-3 group-hover:text-blue-500 transition-colors relative z-10" />
+            <p className="text-sm text-ink/40 relative z-10">
+              Drag & drop your resume here, or <span className="text-blue-500 font-medium">browse files</span>
+            </p>
+            <p className="text-xs text-ink/25 mt-1 relative z-10">PDF, DOC, DOCX (max 5MB)</p>
+            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-600 rounded-full text-[10px] font-bold uppercase tracking-wider relative z-10">
+              <CheckCircle size={12} /> AWS AI OCR Active
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

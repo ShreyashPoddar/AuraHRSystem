@@ -65,10 +65,24 @@ export async function POST(request: Request) {
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
       .join('&');
 
-    const fullUrl = `${MOODLE_URL}/webservice/rest/server.php?${baseQs}${paramQs ? '&' + paramQs : ''}`;
+    const fullUrl = `${MOODLE_URL}/webservice/rest/server.php?${baseQs}`;
 
-    const moodleRes = await fetch(fullUrl);
-    const data = await moodleRes.json();
+    const moodleRes = await fetch(fullUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: paramQs,
+    });
+    
+    const responseText = await moodleRes.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (err) {
+      console.error(`[Moodle Proxy] Non-JSON response for ${wsfunction}:`, responseText.substring(0, 500));
+      return NextResponse.json({ error: `Moodle returned non-JSON response. Check Moodle error logs.` }, { status: 500 });
+    }
 
     return NextResponse.json(data);
 

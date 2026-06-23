@@ -29,8 +29,8 @@ export function OrgSidebar() {
 
   return (
     <aside
-      className={`bg-[#1c1d1b] border-r border-white/5 hidden md:flex flex-col text-[#9ca3af] transition-all duration-300 shrink-0 ${
-        isCollapsed ? 'w-20' : 'w-64'
+      className={`bg-[#1c1d1b] border-r border-white/5 flex flex-col text-[#9ca3af] transition-all duration-300 shrink-0 h-full ${
+        isCollapsed ? 'w-20' : 'w-20 lg:w-64'
       }`}
     >
       {/* Header / Logo */}
@@ -56,14 +56,14 @@ export function OrgSidebar() {
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                 <path d="M2 12h20" className="opacity-20" />
               </svg>
-              <span className="font-sans text-xl font-bold text-white tracking-tight">AuraHR</span>
+              <span className="font-sans text-xl font-bold text-white tracking-tight hidden lg:block">AuraHR</span>
             </motion.div>
           )}
         </AnimatePresence>
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-[#9ca3af] hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors ml-auto"
+          className="text-[#9ca3af] hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors ml-auto hidden lg:block"
         >
           {isCollapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
         </button>
@@ -78,7 +78,7 @@ export function OrgSidebar() {
               key={item.href}
               href={item.href}
               className={`flex items-center px-3 py-2.5 rounded-xl font-sans text-sm font-medium transition-all duration-200 group ${
-                isCollapsed ? 'justify-center' : 'justify-start'
+                isCollapsed ? 'justify-center' : 'justify-center lg:justify-start'
               } ${
                 active
                   ? 'bg-[#a8c3a0] text-[#1c2e1c] font-semibold shadow-md'
@@ -90,7 +90,7 @@ export function OrgSidebar() {
                   active ? 'text-[#1c2e1c]' : 'text-[#9ca3af] group-hover:text-white'
                 }`}
               />
-              {!isCollapsed && <span className="ml-3">{item.label}</span>}
+              {!isCollapsed && <span className="ml-3 hidden lg:block">{item.label}</span>}
             </Link>
           );
         })}
@@ -102,12 +102,12 @@ export function OrgSidebar() {
           className={`rounded-xl flex items-center transition-all ${
             isCollapsed
               ? 'justify-center p-2 bg-emerald-500/10 text-[#7ca982]'
-              : 'px-4 py-3 bg-[#2d2e2d] text-white/60 space-x-3'
+              : 'justify-center lg:justify-start p-2 lg:px-4 lg:py-3 bg-emerald-500/10 lg:bg-[#2d2e2d] text-[#7ca982] lg:text-white/60 space-x-0 lg:space-x-3'
           }`}
         >
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           {!isCollapsed && (
-            <span className="font-sans text-[11px] font-semibold tracking-wider uppercase">
+            <span className="font-sans text-[11px] font-semibold tracking-wider uppercase hidden lg:block">
               Organization Mode
             </span>
           )}

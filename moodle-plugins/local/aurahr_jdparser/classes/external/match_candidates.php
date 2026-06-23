@@ -28,6 +28,8 @@ Score the candidate from 0 to 100 based on:
 - Future-proof alignment: 15% weight
 - Team-gap coverage: 15% weight
 
+CRITICAL: You must base your score EXCLUSIVELY on the provided resume text and bio against the JD. Do NOT assume, infer, or hallucinate external information. Ignore any external portfolio links like GitHub or LeetCode.
+
 Return a JSON object with:
 {
   "score": <number 0-100>,
@@ -87,15 +89,7 @@ PROMPT;
             $user = $DB->get_record('user', ['id' => $app->userid], 'id, firstname, lastname, email, description');
             if (!$user) continue;
 
-            // Trigger socials analysis first.
-            try {
-                require_once($CFG->dirroot . '/local/aurahr_jobs/classes/external/analyze_socials.php');
-                \local_aurahr_jobs\external\analyze_socials::execute($app->id);
-                // Re-fetch application to get the updated social URLs and scores
-                $app = $DB->get_record('local_aurahr_applications', ['id' => $app->id]);
-            } catch (\Exception $e) {
-                debugging("Failed to analyze socials for candidate application {$app->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
-            }
+
 
             $candidate_info = "Name: {$user->firstname} {$user->lastname}\n"
                             . "Email: {$user->email}\n"
@@ -148,15 +142,7 @@ PROMPT;
         $app = $DB->get_record('local_aurahr_applications', ['id' => $appid]);
         if (!$app) return false;
 
-        // Trigger socials analysis.
-        try {
-            require_once($CFG->dirroot . '/local/aurahr_jobs/classes/external/analyze_socials.php');
-            \local_aurahr_jobs\external\analyze_socials::execute($app->id);
-            // Re-fetch application to get the updated social URLs and scores
-            $app = $DB->get_record('local_aurahr_applications', ['id' => $app->id]);
-        } catch (\Exception $e) {
-            debugging("Failed to analyze socials for application {$app->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
-        }
+
 
         $jd = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $app->jobid]);
         if (!$jd) return false;
@@ -186,10 +172,10 @@ PROMPT;
 
             $app->jd_score     = (float)($result['score'] ?? 0);
             
-            // Append JD parser summary to existing AI summary
+            // Set JD parser summary
             $jd_summary = $result['summary'] ?? '';
             if (!empty($jd_summary)) {
-                $app->ai_summary = "JD PARSER ANALYSIS:\n" . $jd_summary . "\n\nSOCIALS ANALYSIS:\n" . ($app->ai_summary ?? 'Not analyzed yet.');
+                $app->ai_summary = $jd_summary;
             }
             
             $app->timemodified = time();

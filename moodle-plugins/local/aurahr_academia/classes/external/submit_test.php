@@ -9,13 +9,13 @@ use core_external\external_value;
 class submit_test extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'candidateId' => new external_value(PARAM_INT, 'Candidate ID (User ID)', VALUE_OPTIONAL),
-            'jobId' => new external_value(PARAM_INT, 'Job ID', VALUE_OPTIONAL),
+            'candidateId' => new external_value(PARAM_INT, 'Candidate ID (User ID)', VALUE_DEFAULT, 0),
+            'jobId' => new external_value(PARAM_INT, 'Job ID', VALUE_DEFAULT, 0),
             'score' => new external_value(PARAM_FLOAT, 'Test Score'),
         ]);
     }
 
-    public static function execute($candidateId, $jobId, $score): array {
+    public static function execute($candidateId = 0, $jobId = 0, $score = 0.0): array {
         global $DB, $USER;
         $params = self::validate_parameters(self::execute_parameters(), [
             'candidateId' => $candidateId,

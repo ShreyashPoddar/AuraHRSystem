@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Clock, AlertTriangle, CheckCircle, XCircle,
@@ -34,10 +35,19 @@ interface Application {
 
 
 export default function MyApplicationsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlAppId = searchParams.get('appId');
+
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  const [selectedAppId, setLocalSelectedAppId] = useState<number | null>(urlAppId ? parseInt(urlAppId, 10) : null);
   const [activeTab, setActiveTab] = useState<'jd' | 'academia' | 'interview' | 'result'>('jd');
+
+  const setSelectedAppId = (id: number) => {
+    setLocalSelectedAppId(id);
+    router.push(`?appId=${id}`, { scroll: false });
+  };
 
   // Job, Assessment, and Interview details for the selected application
   const [job, setJob] = useState<any | null>(null);
@@ -79,10 +89,18 @@ export default function MyApplicationsPage() {
             ['scheduled', 'active'].includes(a.assessment_status || '')
           );
           const bestApp = liveApp || scheduledApp || apps[0];
-          setSelectedAppId(bestApp.id);
-          // Auto-switch to academia tab if a live/scheduled test is selected
-          if (liveApp || scheduledApp) {
-            setActiveTab('academia');
+          
+          if (!urlAppId || !apps.some(a => a.id === parseInt(urlAppId, 10))) {
+            setSelectedAppId(bestApp.id);
+            if (liveApp || scheduledApp) {
+              setActiveTab('academia');
+            }
+          } else {
+            const parsedId = parseInt(urlAppId, 10);
+            const selectedIsLive = [liveApp, scheduledApp].find(a => a?.id === parsedId);
+            if (selectedIsLive) {
+              setActiveTab('academia');
+            }
           }
         }
       } catch (err) {

@@ -32,8 +32,6 @@ interface Application {
   jd_score?: number | null;
   academia_score?: number | null;
   interview_score?: number | null;
-  github_score?: number | null;
-  leetcode_score?: number | null;
   overall_score?: number | null;
   malpractice: number;
   recruiter_rating: number;
@@ -65,10 +63,6 @@ interface ApplicationDetail {
   role: string;
   education_details: string;
   resume_skills: string;
-  github_score: number | null;
-  leetcode_score: number | null;
-  github_url?: string;
-  leetcode_url?: string;
   matched_skills: string;
   recruiter_rating: number;
   recruiter_feedback: string;
@@ -307,8 +301,6 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">GitHub</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">LeetCode</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
@@ -345,12 +337,6 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.github_score)}`}>
-                    {app.github_score !== null && app.github_score !== undefined ? `${app.github_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.leetcode_score)}`}>
-                    {app.leetcode_score !== null && app.leetcode_score !== undefined ? `${app.leetcode_score.toFixed(1)}` : '—'}
                   </td>
                   <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
                     {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
@@ -610,16 +596,6 @@ function CandidateDetailPopup({
                   <MapPin size={12} /> {app.city}{app.country ? `, ${app.country}` : ''}
                 </span>
               )}
-              {app.github_url && (
-                <a href={app.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-ink bg-ink/10 hover:bg-ink/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> GitHub
-                </a>
-              )}
-              {app.leetcode_url && (
-                <a href={app.leetcode_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-gold bg-gold/10 hover:bg-gold/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> LeetCode
-                </a>
-              )}
             </div>
 
             {/* Education Details */}
@@ -646,8 +622,6 @@ function CandidateDetailPopup({
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
                   <ScoreCard label="Overall" value={app.overall_score} highlight />
-                  {(app.github_score !== null && app.github_score !== undefined) ? <ScoreCard label="GitHub" value={app.github_score} /> : null}
-                  {(app.leetcode_score !== null && app.leetcode_score !== undefined) ? <ScoreCard label="LeetCode" value={app.leetcode_score} /> : null}
                 </div>
               </div>
 
@@ -671,8 +645,6 @@ function CandidateDetailPopup({
               <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-3">Skill Sources & Scores</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-ink" />} label="GitHub" score={app.github_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-gold" />} label="LeetCode" score={app.leetcode_score} />
               </div>
             </div>
 

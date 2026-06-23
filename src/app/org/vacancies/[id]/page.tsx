@@ -150,15 +150,17 @@ export default function VacancyDetailPage() {
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div className="bento-card p-6 border-l-4 border-sage">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-ink">{job.title}</h1>
-            <p className="text-sm text-ink/40 mt-1">
-              {job.department || 'General'} · Created: <span className="text-ink/70 font-medium">{formatDate(job.timecreated)}</span> · Date Finished: <span className="text-ink/70 font-medium">{formatDate(job.deadline)}</span>
+        <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+          <div className="min-w-0">
+            <h1 className="font-serif text-2xl font-bold text-ink break-words">{job.title}</h1>
+            <p className="text-sm text-ink/40 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>{job.department || 'General'}</span>
+              <span>· Created: <span className="text-ink/70 font-medium">{formatDate(job.timecreated)}</span></span>
+              <span>· Date Finished: <span className="text-ink/70 font-medium">{formatDate(job.deadline)}</span></span>
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl capitalize ${
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl capitalize shrink-0 ${
               job.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-ink/5 text-ink/50'
             }`}>
               {job.status}
@@ -223,7 +225,7 @@ export default function VacancyDetailPage() {
       </div>
 
       {/* Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-ink/10">
+      <div className="flex flex-wrap items-center gap-2 border-b border-ink/10">
         <TabButton active={activeTab === 'jd'} onClick={() => setActiveTab('jd')} icon={<FileText size={14} />} label="JD Parser" />
         <TabButton active={activeTab === 'academia'} onClick={() => setActiveTab('academia')} icon={<BookOpen size={14} />} label="Academia Round" />
         <TabButton active={activeTab === 'interviews'} onClick={() => setActiveTab('interviews')} icon={<Users size={14} />} label="Interview Panel" />
@@ -241,7 +243,7 @@ export default function VacancyDetailPage() {
           {activeTab === 'jd' && (
             <div className="space-y-6">
               {/* Quick stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 w-full">
                 <QuickStat icon={<Users size={16} />} label="Applications" value={job.application_count} />
                 <QuickStat icon={<Calendar size={16} />} label="Deadline" value={formatDate(job.deadline)} />
                 <QuickStat icon={<FileText size={16} />} label="Max Limit" value={job.maxlimit} />
@@ -249,11 +251,11 @@ export default function VacancyDetailPage() {
               </div>
 
               {/* JD Parser Configuration */}
-              <div className="bento-card p-6">
-                <h4 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
+              <div className="bento-card p-6 min-w-0">
+                <h4 className="text-sm font-semibold text-ink mb-4 flex flex-wrap items-center justify-between gap-2">
                   <span>Configuration</span>
                   {hasAnalysis && job.jd_analysis ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {job.jd_analysis.is_finalized && (
                         <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
                           ✅ Finalized
@@ -283,7 +285,7 @@ export default function VacancyDetailPage() {
                       className="w-full bg-warm-sand/30 border border-ink/10 rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-sage/50 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <button 
                       disabled={!!job.jd_analysis?.is_finalized}
                       className="bg-sage text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-sage/90 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -355,9 +357,9 @@ export default function VacancyDetailPage() {
 
               {/* JD Analysis 4-Box */}
               {hasAnalysis && job.jd_analysis && (
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                   <h3 className="font-serif text-lg font-semibold text-ink flex items-center gap-2">
-                    <Sparkles size={18} className="text-sage" />
+                    <Sparkles size={18} className="text-sage shrink-0" />
                     JD Analysis — Skill Breakdown
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

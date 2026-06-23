@@ -66,9 +66,31 @@ $functions = [
 
 $services = [
     'AuraHR Academia API' => [
-        'functions'       => array_keys($functions),
+        'functions'       => array_merge(array_keys($functions), [
+            'local_aurahr_interview_list',
+        ]),
         'restrictedusers' => 0,
         'enabled'         => 1,
         'shortname'       => 'aurahr_academia',
+    ],
+    'AuraHR Jobs API' => [
+        'functions'       => [
+            'local_aurahr_academia_get_assessment',
+            'local_aurahr_academia_generate_questions',
+            'local_aurahr_interview_list',
+        ],
+        'restrictedusers' => 0,
+        'enabled'         => 1,
+        'shortname'       => 'aurahr_jobs',
+    ],
+    'AuraHR User API' => [
+        'functions'       => [
+            'local_aurahr_academia_get_assessment',
+            'local_aurahr_academia_generate_questions',
+            'local_aurahr_interview_list',
+        ],
+        'restrictedusers' => 0,
+        'enabled'         => 1,
+        'shortname'       => 'aurahr_user',
     ],
 ];

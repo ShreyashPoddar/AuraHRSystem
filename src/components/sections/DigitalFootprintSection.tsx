@@ -5,8 +5,6 @@ import { Code, Users, CheckCircle, Code2, Database, ShieldCheck, Clock } from "l
 
 export function DigitalFootprintSection() {
   const platforms = [
-    { name: "GitHub", icon: <Code className="w-6 h-6" />, category: "Version Control & OSS", score: 95, verified: true, lastScanned: "2 mins ago", color: "text-ink bg-warm-sand" },
-    { name: "LeetCode", icon: <Code2 className="w-6 h-6" />, category: "Algorithm Formulation", score: 88, verified: true, lastScanned: "4 mins ago", color: "text-rust bg-rust/10" },
     { name: "LinkedIn", icon: <Users className="w-6 h-6" />, category: "Professional Network", score: 99, verified: true, lastScanned: "1 min ago", color: "text-[#0A66C2] bg-[#0A66C2]/10" },
     { name: "Kaggle", icon: <Database className="w-6 h-6" />, category: "Data Science", score: 40, verified: false, lastScanned: "15 mins ago", color: "text-[#20BEFF] bg-[#20BEFF]/10" },
     { name: "GeeksforGeeks", icon: <Code2 className="w-6 h-6" />, category: "Data Structures", score: 85, verified: true, lastScanned: "10 mins ago", color: "text-sage bg-sage/10" },

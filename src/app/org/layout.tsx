@@ -13,7 +13,7 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
         <OrgSidebar />
 
         {/* Main content area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <TopNavBar title="AuraHR" showBack={true} />
 
           {/* Page content */}

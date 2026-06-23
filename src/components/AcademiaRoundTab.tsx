@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Settings, Play, Square, Loader2, Sparkles, Calendar, CheckCircle, X } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
+import AssessmentBuilder from '@/components/AssessmentBuilder';
 
 interface AcademiaRoundTabProps {
   jobId: number;
@@ -369,22 +370,22 @@ export default function AcademiaRoundTab({ jobId }: AcademiaRoundTabProps) {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm shadow-sm transition-colors ${
-                generating ? 'bg-sage/50 text-white cursor-not-allowed' : 'bg-sage text-white hover:bg-sage/90'
-              }`}
-            >
-              {generating ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Sparkles size={16} />
-              )}
-              {generating ? 'Drafting Questions via AI...' : (isRegeneratingMode ? 'Regenerate Paper' : 'Generate Paper')}
-            </button>
-          </div>
+        </div>
+      )}
+
+      {showConfig && (
+        <div className="mt-6">
+          <AssessmentBuilder
+            jobId={jobId}
+            passCount={passCount}
+            questionCount={questionCount}
+            durationMins={durationMins}
+            description={description}
+            onSaveSuccess={(assessData) => {
+              setAssessment(assessData);
+              setIsRegeneratingMode(false);
+            }}
+          />
         </div>
       )}
 

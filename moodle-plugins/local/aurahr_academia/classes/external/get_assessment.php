@@ -134,16 +134,16 @@ class get_assessment extends external_api {
         return new external_single_structure([
             'exists'          => new external_value(PARAM_BOOL, 'Whether assessment exists'),
             'id'              => new external_value(PARAM_INT, 'Assessment ID'),
-            'jobid'           => new external_value(PARAM_INT, 'Job ID', VALUE_OPTIONAL),
+            'jobid'           => new external_value(PARAM_INT, 'Job ID', DEFAULT),
             'title'           => new external_value(PARAM_TEXT, 'Title'),
-            'num_questions'   => new external_value(PARAM_INT, 'Questions count', VALUE_OPTIONAL),
-            'duration_mins'   => new external_value(PARAM_INT, 'Duration', VALUE_OPTIONAL),
-            'pass_percentage' => new external_value(PARAM_FLOAT, 'Pass %', VALUE_OPTIONAL),
-            'start_time'      => new external_value(PARAM_INT, 'Start time', VALUE_OPTIONAL),
-            'end_time'        => new external_value(PARAM_INT, 'End time', VALUE_OPTIONAL),
-            'auto_start'      => new external_value(PARAM_BOOL, 'Auto start test', VALUE_OPTIONAL),
+            'num_questions'   => new external_value(PARAM_INT, 'Questions count', VALUE_DEFAULT),
+            'duration_mins'   => new external_value(PARAM_INT, 'Duration', VALUE_DEFAULT),
+            'pass_percentage' => new external_value(PARAM_FLOAT, 'Pass %', VALUE_DEFAULT),
+            'start_time'      => new external_value(PARAM_INT, 'Start time', VALUE_DEFAULT),
+            'end_time'        => new external_value(PARAM_INT, 'End time', VALUE_DEFAULT),
+            'auto_start'      => new external_value(PARAM_BOOL, 'Auto start test', VALUE_DEFAULT),
             'status'          => new external_value(PARAM_TEXT, 'Status'),
-            'quizid'          => new external_value(PARAM_INT, 'Moodle quiz ID', VALUE_OPTIONAL),
+            'quizid'          => new external_value(PARAM_INT, 'Moodle quiz ID', VALUE_DEFAULT),
             'candidates'      => new external_multiple_structure(
                 new external_single_structure([
                     'id'           => new external_value(PARAM_INT, 'Enrollment ID'),
@@ -165,15 +165,15 @@ class get_assessment extends external_api {
                         new external_value(PARAM_RAW, 'Option text')
                     ),
                     'correct'     => new external_value(PARAM_INT, 'Index of correct option'),
-                    'explanation' => new external_value(PARAM_RAW, 'Explanation text', VALUE_OPTIONAL),
-                    'difficulty'  => new external_value(PARAM_TEXT, 'easy|medium|hard', VALUE_OPTIONAL),
+                    'explanation' => new external_value(PARAM_RAW, 'Explanation text', VALUE_DEFAULT),
+                    'difficulty'  => new external_value(PARAM_TEXT, 'easy|medium|hard', VALUE_DEFAULT),
                 ]),
                 'Generated questions list',
-                VALUE_OPTIONAL
+                VALUE_DEFAULT
             ),
-            'user_stage'      => new external_value(PARAM_TEXT, 'User stage', VALUE_OPTIONAL),
-            'user_malpractice'=> new external_value(PARAM_INT, 'User malpractice count', VALUE_OPTIONAL),
-            'user_status'     => new external_value(PARAM_TEXT, 'User enrollment status', VALUE_OPTIONAL),
+            'user_stage'      => new external_value(PARAM_TEXT, 'User stage', VALUE_DEFAULT),
+            'user_malpractice'=> new external_value(PARAM_INT, 'User malpractice count', VALUE_DEFAULT),
+            'user_status'     => new external_value(PARAM_TEXT, 'User enrollment status', VALUE_DEFAULT),
         ]);
     }
 }
