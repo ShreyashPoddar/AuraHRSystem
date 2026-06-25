@@ -8,7 +8,7 @@ import {
 import { moodleCall } from '@/lib/moodle';
 
 interface ResultsTabProps {
-  jobId: number;
+  jobId: number | string;
   initialStatus?: string;
 }
 
@@ -39,6 +39,18 @@ export default function ResultsTab({ jobId, initialStatus }: ResultsTabProps) {
 
   useEffect(() => {
     async function fetchStats() {
+      if (!jobId) return;
+
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        setStatsData({
+          total_applications: 0,
+          stage_counts: []
+        });
+        setSelectedCandidates([]);
+        return;
+      }
+
       try {
         const [statsRes, candidatesRes] = await Promise.all([
           moodleCall<JobStats>('local_aurahr_jobs_get_stats', { jobid: jobId }),

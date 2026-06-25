@@ -13,9 +13,10 @@ import AcademiaRoundTab from '@/components/AcademiaRoundTab';
 import InterviewPanelTab from '@/components/InterviewPanelTab';
 import ResultsTab from '@/components/ResultsTab';
 import RankedApplicationsTable from '@/components/RankedApplicationsTable';
+import ExpandableJD from '@/components/ExpandableJD';
 
 interface Job {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   department: string;
@@ -60,8 +61,12 @@ type TabType = 'jd' | 'academia' | 'interviews' | 'results';
 
 export default function VacancyDetailPage() {
   const params = useParams();
-  const jobId = Number(params?.id);
+  const rawId = String(params?.id);
+  const isKekaJob = rawId.includes('-');
+  const jobId: string | number = isKekaJob ? rawId : Number(rawId);
+
   const [job, setJob] = useState<Job | null>(null);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('jd');
@@ -70,18 +75,81 @@ export default function VacancyDetailPage() {
   const [descInput, setDescInput] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [archivingJob, setArchivingJob] = useState(false);
 
   const loadJob = useCallback(async () => {
-    if (!jobId) return;
+    if (!rawId) return;
+    setLoading(true);
+
     try {
-      const res = await moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId });
-      setJob(res);
+      if (isKekaJob) {
+        // Keka Pipeline
+        const kekaRes = await fetch('/api/keka/sync-jobs');
+        const kekaData = await kekaRes.json();
+        const kekaJob = kekaData.jobs?.find((j: any) => String(j.id) === rawId);
+        
+        if (kekaJob) {
+          const jdText = kekaJob.description || kekaJob.jobDescription || kekaJob.requirements || kekaJob.profile || "No description provided in Keka.";
+          setJob({
+            id: kekaJob.id,
+            title: kekaJob.title || kekaJob.jobTitle || 'Untitled',
+            description: jdText,
+            department: kekaJob.department || kekaJob.departmentName || '',
+            status: 'active',
+            vacancies: 1,
+            deadline: 0,
+            maxlimit: 100,
+            application_count: kekaJob.candidateCount ?? 0,
+            timecreated: 0,
+            stage_counts: [],
+          });
+        } else {
+          setJob(null);
+        }
+
+        // Fetch candidates for Keka Pipeline
+        const candidatesRes = await fetch(`/api/keka/sync-candidates?jobId=${rawId}`);
+        const candidatesData = await candidatesRes.json();
+        
+        if (candidatesData.success && Array.isArray(candidatesData.candidates)) {
+          const mapped = candidatesData.candidates.map((c: any, idx: number) => ({
+            rank: idx + 1,
+            id: c.id,
+            userid: 0,
+            jobid: jobId,
+            firstname: c.firstName || c.firstname || (c.name || '').split(' ')[0] || 'Unknown',
+            lastname: c.lastName || c.lastname || (c.name || '').split(' ').slice(1).join(' ') || '',
+            email: c.email || c.emailAddress || '',
+            stage: 'Imported',
+            jd_score: null,
+            academia_score: null,
+            interview_score: null,
+            overall_score: null,
+            malpractice: 0,
+            recruiter_rating: 0,
+            timecreated: c.appliedDate ? Math.floor(new Date(c.appliedDate).getTime() / 1000) : 0,
+            timemodified: 0,
+          }));
+          setApplications(mapped);
+          setJob(prev => prev ? { ...prev, application_count: mapped.length } : prev);
+        } else {
+          setApplications([]);
+        }
+      } else {
+        // Moodle Pipeline
+        const res: any = await moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId });
+        if (res.error || res.exception || res.errorcode || !res.id) {
+          throw new Error('Moodle returned an internal error or no job found');
+        }
+        setJob(res);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Data fetch failed:', err);
+      setJob(null);
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [rawId, isKekaJob, jobId]);
 
   useEffect(() => { loadJob(); }, [loadJob]);
 
@@ -92,6 +160,45 @@ export default function VacancyDetailPage() {
   }, [job]);
 
   async function runJDParser() {
+    if (isKekaJob) {
+      try {
+        setParsing(true);
+        const unparsedCandidates = applications.filter(app => app.stage === 'Imported' || app.jd_score === null);
+        
+        if (unparsedCandidates.length === 0) {
+            alert("All candidates have already been parsed.");
+            return;
+        }
+
+        for (const candidate of unparsedCandidates) {
+            const data = await fetch(`/api/keka/fetch-resume`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: candidate.id,
+                    email: candidate.email,
+                    jobDescription: job?.description || "No job description"
+                })
+            }).then(res => res.json());
+            if (data.success && data.jdScore !== undefined) {
+                setApplications(prev => prev.map(app => 
+                    app.id === candidate.id 
+                    ? { ...app, jd_score: data.jdScore, overall_score: data.jdScore, stage: 'Parsed' } 
+                    : app
+                ));
+            }
+        }
+
+        setRefreshTrigger(prev => prev + 1);
+      } catch (error) {
+        console.error("Bulk parsing failed", error);
+        alert("An error occurred during bulk parsing.");
+      } finally {
+        setParsing(false);
+      }
+      return;
+    }
+
     setParsing(true);
     try {
       await moodleCall('local_aurahr_jdparser_parse', { jobid: jobId });
@@ -116,6 +223,20 @@ export default function VacancyDetailPage() {
       console.error('Failed to update description', err);
     } finally {
       setSavingDesc(false);
+    }
+  }
+
+  async function archiveJob() {
+    if (!confirm('Are you sure you want to archive this job?')) return;
+    setArchivingJob(true);
+    try {
+      await moodleCall('local_aurahr_jobs_update_job', { jobid: jobId, status: 'archived' });
+      await loadJob();
+    } catch (err) {
+      console.error('Failed to archive job', err);
+      alert('Failed to archive job.');
+    } finally {
+      setArchivingJob(false);
     }
   }
 
@@ -147,7 +268,7 @@ export default function VacancyDetailPage() {
   const selectedCount = getStageCount('selected');
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 flex-1 w-full">
       {/* Header */}
       <div className="bento-card p-6 border-l-4 border-sage">
         <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
@@ -196,20 +317,31 @@ export default function VacancyDetailPage() {
         <div className="pt-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-ink/40 uppercase tracking-wider">Job Description</h3>
-            {!job.jd_analysis?.is_finalized && (
-              !editingDesc ? (
-                <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
-                  Edit Description
+            <div className="flex items-center gap-4">
+              {job.status !== 'archived' && (
+                <button 
+                  onClick={archiveJob}
+                  disabled={archivingJob}
+                  className="text-xs font-bold px-3 py-1 rounded-lg bg-rust/10 text-rust hover:bg-rust/20 transition-colors"
+                >
+                  {archivingJob ? 'Archiving...' : 'Archive Job'}
                 </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
-                  <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
-                    {savingDesc ? 'Saving...' : 'Save'}
+              )}
+              {!job.jd_analysis?.is_finalized && (
+                !editingDesc ? (
+                  <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
+                    Edit Description
                   </button>
-                </div>
-              )
-            )}
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
+                    <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
+                      {savingDesc ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
           </div>
           
           {editingDesc ? (
@@ -219,7 +351,7 @@ export default function VacancyDetailPage() {
               onChange={(e) => setDescInput(e.target.value)}
             />
           ) : (
-            <div className="text-sm text-ink/70 leading-relaxed max-h-32 overflow-y-auto pr-2" dangerouslySetInnerHTML={{ __html: job.description }} />
+            <ExpandableJD content={job.description} />
           )}
         </div>
       </div>
@@ -290,6 +422,13 @@ export default function VacancyDetailPage() {
                       disabled={!!job.jd_analysis?.is_finalized}
                       className="bg-sage text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-sage/90 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
+                        const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+                        if (isKekaJob) {
+                          if (!passCount) return;
+                          alert(`Configuration saved for Keka job! ${passCount} applicants will pass the JD Parser.`);
+                          return;
+                        }
+
                         if (!passCount) return;
                         try {
                           await moodleCall('local_aurahr_jdparser_update_config', { jobid: jobId, pass_count: passCount });
@@ -308,6 +447,18 @@ export default function VacancyDetailPage() {
                       disabled={!hasAnalysis || !!job.jd_analysis?.is_finalized}
                       className="bg-purple-600 text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-purple-700 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
+                        const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+                        if (isKekaJob) {
+                          if (!passCount) {
+                            alert("Please specify a pass count first and save configuration.");
+                            return;
+                          }
+                          if (confirm(`Are you sure you want to finalize the JD Round and pass the top ${passCount} candidates to the Academia Round?`)) {
+                            alert(`JD Round Finalized for Keka job! Top ${passCount} candidates moved to Academia round.`);
+                          }
+                          return;
+                        }
+
                         if (!passCount) {
                           alert("Please specify a pass count first and save configuration.");
                           return;
@@ -395,7 +546,7 @@ export default function VacancyDetailPage() {
       </AnimatePresence>
 
       {/* Ranked Applications Table (Always visible at the bottom per project plan) */}
-      <RankedApplicationsTable jobId={job.id} refreshTrigger={refreshTrigger} />
+      <RankedApplicationsTable jobId={job.id} refreshTrigger={refreshTrigger} applications={applications} />
     </div>
   );
 }
@@ -473,7 +624,7 @@ function SkillBox({
   );
 }
 
-function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: number, total: number, refreshTrigger?: number }) {
+function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: number | string, total: number, refreshTrigger?: number }) {
   const [data, setData] = useState([
     { range: '0-20%', count: 0 },
     { range: '21-40%', count: 0 },
@@ -484,6 +635,13 @@ function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: numbe
 
   useEffect(() => {
     async function fetchData() {
+      if (!jobId) return;
+
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        return; // Data naturally stays at 0
+      }
+
       try {
         const res = await moodleCall<{ applications: any[] }>('local_aurahr_jobs_list_applications', { jobid: jobId });
         const apps = res.applications || [];

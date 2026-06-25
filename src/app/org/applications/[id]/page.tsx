@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import RadarChart from '@/components/RadarChart';
+import ExpandableJD from '@/components/ExpandableJD';
 import {
   STAGE_META,
   getManualMoveOptions,
@@ -19,9 +20,9 @@ import {
 
 interface Application {
   rank: number;
-  id: number;
+  id: string | number;
   userid: number;
-  jobid: number;
+  jobid: string | number;
   firstname: string;
   lastname: string;
   email: string;
@@ -29,11 +30,7 @@ interface Application {
   jd_score?: number | null;
   academia_score?: number | null;
   interview_score?: number | null;
-  github_score?: number | null;
-  leetcode_score?: number | null;
   overall_score?: number | null;
-  github_url?: string;
-  leetcode_url?: string;
   malpractice: number;
   recruiter_rating: number;
   timecreated: number;
@@ -41,7 +38,7 @@ interface Application {
 }
 
 interface Job {
-  id: number;
+  id: string | number;
   title: string;
   department: string;
   status: string;
@@ -53,9 +50,9 @@ interface Job {
 }
 
 interface ApplicationDetail {
-  id: number;
+  id: string | number;
   userid: number;
-  jobid: number;
+  jobid: string | number;
   job_title: string;
   job_department: string;
   firstname: string;
@@ -76,10 +73,6 @@ interface ApplicationDetail {
   role: string;
   education_details: string;
   resume_skills: string;
-  github_score: number | null;
-  leetcode_score: number | null;
-  github_url?: string;
-  leetcode_url?: string;
   matched_skills: string;
   recruiter_rating: number;
   recruiter_feedback: string;
@@ -113,7 +106,9 @@ function getStageTooltip(stage: string): string | undefined {
 
 export default function ApplicationDetailPage() {
   const params = useParams();
-  const jobId = Number(params?.id);
+  const rawId = String(params?.id);
+  const isKekaJob = rawId.includes('-');
+  const jobId: string | number = isKekaJob ? rawId : Number(rawId);
 
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -130,32 +125,106 @@ export default function ApplicationDetailPage() {
   const [editingDesc, setEditingDesc] = useState(false);
   const [descText, setDescText] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
+  const [kekaFetching, setKekaFetching] = useState(false);
+  const [kekaStatus, setKekaStatus] = useState<string>('');
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Main Orchestrator ────────────────────────────────────────────────
   const loadApplications = useCallback(async (isBackground = false) => {
-    if (!jobId) return;
+    if (!rawId) return;
     if (!isBackground) setLoading(true);
     else setRefreshing(true);
+
     try {
-      const [jobRes, appsRes] = await Promise.all([
-        moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId }),
-        moodleCall<{ applications: Application[]; total: number }>(
+      if (isKekaJob) {
+        // Step 1: Set job metadata from Keka jobs list
+        const jobsRes = await fetch('/api/keka/sync-jobs');
+        const jobsData = await jobsRes.json();
+        const kekaJob = jobsData.jobs?.find((j: any) => String(j.id) === rawId);
+
+        if (kekaJob) {
+          setJob({
+            id: kekaJob.id,
+            title: kekaJob.title || kekaJob.jobTitle || 'Untitled',
+            department: kekaJob.department || kekaJob.departmentName || '',
+            status: 'active',
+            description: kekaJob.description || kekaJob.jobDescription || kekaJob.requirements || kekaJob.profile || 'No description provided in Keka.',
+            timecreated: 0,
+            deadline: 0,
+            application_count: kekaJob.candidateCount ?? 0,
+            stage_counts: [],
+          });
+          setDescText('');
+        }
+
+        // Step 2: Fetch Keka candidates for this job
+        const candidatesRes = await fetch(`/api/keka/sync-candidates?jobId=${rawId}`);
+        const candidatesData = await candidatesRes.json();
+
+        if (!candidatesData.success || !Array.isArray(candidatesData.candidates)) {
+          setApplications([]);
+          setTotal(0);
+          return;
+        }
+
+        // Step 3: Map Keka candidate shape -> Application table shape
+        // Using Keka's actual UUID as the ID
+        const mapped: Application[] = candidatesData.candidates.map((c: any, idx: number) => {
+          return {
+            rank: idx + 1,
+            id: c.id,
+            userid: 0,
+            jobid: jobId,
+            firstname: c.firstName || c.firstname || (c.name || '').split(' ')[0] || 'Unknown',
+            lastname: c.lastName || c.lastname || (c.name || '').split(' ').slice(1).join(' ') || '',
+            email: c.email || c.emailAddress || '',
+            stage: 'Imported',
+            jd_score: null,
+            academia_score: null,
+            interview_score: null,
+            overall_score: null,
+            malpractice: 0,
+            recruiter_rating: 0,
+            timecreated: c.appliedDate ? Math.floor(new Date(c.appliedDate).getTime() / 1000) : 0,
+            timemodified: 0,
+          };
+        });
+
+        setApplications(mapped);
+        setTotal(mapped.length);
+        setJob(prev => prev ? { ...prev, application_count: mapped.length } : prev);
+        setLastUpdated(new Date());
+      } else {
+        // Moodle Pipeline
+        const jobRes: any = await moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId });
+
+        if (jobRes.error || jobRes.exception || jobRes.errorcode || !jobRes.id) {
+          throw new Error('Moodle returned an internal error or no job found');
+        }
+
+        const appsRes: any = await moodleCall<{ applications: Application[]; total: number }>(
           'local_aurahr_jobs_list_applications',
           { jobid: jobId, stage: stageFilter, search, sort_field: sortField, sort_dir: sortDir }
-        ),
-      ]);
-      setJob(jobRes);
-      setDescText(jobRes.description || '');
-      setApplications(appsRes.applications);
-      setTotal(appsRes.total);
-      setLastUpdated(new Date());
+        );
+
+        setJob(jobRes);
+        setDescText(jobRes.description || '');
+        setApplications(
+          (appsRes.error || appsRes.exception || !Array.isArray(appsRes.applications))
+            ? []
+            : appsRes.applications
+        );
+        setTotal(appsRes.total || 0);
+        setLastUpdated(new Date());
+      }
     } catch (err) {
-      console.error('Failed to load:', err);
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [jobId, stageFilter, search, sortField, sortDir]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawId, isKekaJob, jobId, stageFilter, search, sortField, sortDir]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
 
@@ -166,7 +235,11 @@ export default function ApplicationDetailPage() {
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, [loadApplications]);
 
-  async function openDetail(appId: number) {
+  async function openDetail(appId: number | string) {
+    if (typeof appId === 'string' && appId.includes('-')) {
+      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+      return;
+    }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<ApplicationDetail>(
@@ -204,6 +277,53 @@ export default function ApplicationDetailPage() {
     return 'text-rust';
   }
 
+  async function fetchFromKeka() {
+    if (!jobId || kekaFetching) return;
+    setKekaFetching(true);
+    setKekaStatus('Fetching candidates from Keka...');
+
+    try {
+      // Step 1: get candidate list for this Moodle jobId from Keka
+      const candidatesRes = await fetch(`/api/keka/sync-candidates?jobId=${jobId}`);
+      const candidatesData = await candidatesRes.json();
+
+      if (!candidatesData.success || !Array.isArray(candidatesData.candidates)) {
+        setKekaStatus(`No candidates returned from Keka (${candidatesData.error || 'unknown error'})`);
+        return;
+      }
+
+      const list: { id: string; email: string }[] = candidatesData.candidates;
+      if (list.length === 0) {
+        setKekaStatus('Keka returned 0 candidates for this job.');
+        return;
+      }
+
+      // Step 2: run the resume parse pipeline for each candidate sequentially
+      let synced = 0;
+      for (const candidate of list) {
+        setKekaStatus(`Parsing ${synced + 1}/${list.length}: ${candidate.email || candidate.id}...`);
+        try {
+          await fetch(
+            `/api/keka/fetch-resume?id=${encodeURIComponent(candidate.id)}&email=${encodeURIComponent(candidate.email || '')}`,
+          );
+          synced++;
+        } catch (parseErr) {
+          console.warn('Parse failed for candidate', candidate.id, parseErr);
+        }
+      }
+
+      setKekaStatus(`Done — ${synced}/${list.length} candidates synced. Refreshing scores...`);
+
+      // Step 3: reload applications table so JD scores are visible
+      await loadApplications();
+      setKekaStatus(`Keka sync complete. ${synced} candidate${synced !== 1 ? 's' : ''} imported & parsed.`);
+    } catch (err: any) {
+      setKekaStatus(`Error: ${err.message || 'Unknown failure'}`);
+    } finally {
+      setKekaFetching(false);
+    }
+  }
+
   async function handleSaveDesc() {
     setSavingDesc(true);
     try {
@@ -225,7 +345,7 @@ export default function ApplicationDetailPage() {
   const qualifiedInterview = getCount('interview') + getCount('offer') + getCount('selected');
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 flex-1 w-full">
       {/* Header Card */}
       <div className="bento-card p-6">
         <div className="flex items-start justify-between mb-4">
@@ -270,10 +390,7 @@ export default function ApplicationDetailPage() {
               </button>
             </div>
           ) : (
-            <div 
-              className="text-sm text-ink/70 prose prose-sm max-w-none line-clamp-3 hover:line-clamp-none transition-all"
-              dangerouslySetInnerHTML={{ __html: job?.description || 'No description provided.' }}
-            />
+            <ExpandableJD content={job?.description || 'No description provided.'} />
           )}
         </div>
 
@@ -349,6 +466,20 @@ export default function ApplicationDetailPage() {
               Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
+          {/* Keka Sync Button */}
+          <button
+            onClick={fetchFromKeka}
+            disabled={kekaFetching || loading}
+            title="Fetch applicants from Keka Hire and parse their resumes via AuraHR"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/25 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {kekaFetching ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+            {kekaFetching ? 'Fetching...' : 'Fetch from Keka'}
+          </button>
           <button
             onClick={() => loadApplications(true)}
             disabled={refreshing || loading}
@@ -360,6 +491,25 @@ export default function ApplicationDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Keka status bar */}
+      {kekaStatus && (
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium border ${
+          kekaStatus.startsWith('Error')
+            ? 'bg-rust/5 text-rust border-rust/20'
+            : kekaStatus.startsWith('Keka sync complete')
+            ? 'bg-emerald-500/8 text-emerald-700 border-emerald-500/20'
+            : 'bg-teal-500/8 text-teal-700 border-teal-500/20'
+        }`}>
+          {kekaFetching && <Loader2 size={12} className="animate-spin shrink-0" />}
+          <span>{kekaStatus}</span>
+          {!kekaFetching && (
+            <button onClick={() => setKekaStatus('')} className="ml-auto text-ink/30 hover:text-ink/60">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Applications table */}
       {loading ? (
@@ -380,8 +530,6 @@ export default function ApplicationDetailPage() {
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">GitHub</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">LeetCode</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
@@ -418,12 +566,6 @@ export default function ApplicationDetailPage() {
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.github_score || 0)}`}>
-                    {app.github_score !== null && app.github_score !== undefined ? `${app.github_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.leetcode_score || 0)}`}>
-                    {app.leetcode_score !== null && app.leetcode_score !== undefined ? `${app.leetcode_score.toFixed(1)}` : '—'}
                   </td>
                   <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score || 0)}`}>
                     {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
@@ -647,16 +789,6 @@ function CandidateDetailPopup({
                   <MapPin size={12} /> {app.city}{app.country ? `, ${app.country}` : ''}
                 </span>
               )}
-              {app.github_url && (
-                <a href={app.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-ink bg-ink/10 hover:bg-ink/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> GitHub
-                </a>
-              )}
-              {app.leetcode_url && (
-                <a href={app.leetcode_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-gold bg-gold/10 hover:bg-gold/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> LeetCode
-                </a>
-              )}
             </div>
 
             {/* Pipeline Status & Malpractice */}
@@ -701,18 +833,16 @@ function CandidateDetailPopup({
 
             {/* Polygonal Graphical Representation & Scores Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Scores */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-ink/40 uppercase tracking-wider font-semibold">Scores</p>
+              {/* Core Scores */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">Core Assessment Scores</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <ScoreCard label="JD Match" value={app.jd_score} />
+                  <ScoreCard label="JD Parser" value={app.jd_score} />
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
                   <ScoreCard label="Overall" value={app.overall_score} highlight />
-                  {(app.github_score !== null && app.github_score !== undefined) ? <ScoreCard label="GitHub" value={app.github_score} /> : null}
-                  {(app.leetcode_score !== null && app.leetcode_score !== undefined) ? <ScoreCard label="LeetCode" value={app.leetcode_score} /> : null}
                 </div>
               </div>
 
@@ -736,8 +866,6 @@ function CandidateDetailPopup({
               <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-3">Skill Sources & Scores</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-ink" />} label="GitHub" score={app.github_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-gold" />} label="LeetCode" score={app.leetcode_score} />
               </div>
             </div>
 

@@ -14,7 +14,7 @@ import RadarChart from '@/components/RadarChart';
 
 
 interface InterviewPanelTabProps {
-  jobId: number;
+  jobId: number | string;
 }
 
 interface Question {
@@ -77,7 +77,11 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
     }
   };
 
-  async function openDetail(appId: number) {
+  async function openDetail(appId: number | string) {
+    if (typeof appId === 'string' && String(appId).includes('-')) {
+      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+      return;
+    }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<any>('local_aurahr_interview_get_details', { applicationid: appId });
@@ -99,6 +103,14 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
 
   useEffect(() => {
     async function fetchCandidates() {
+      if (!jobId) return;
+
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        setLoadingData(false);
+        return;
+      }
+
       setLoadingData(true);
       try {
         const [appsRes, interviewsRes] = await Promise.all([

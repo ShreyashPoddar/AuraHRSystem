@@ -121,11 +121,13 @@ function scoreColor(score: number | null | undefined) {
 }
 
 interface RankedApplicationsTableProps {
-  jobId: number;
+  jobId: number | string;
   refreshTrigger?: number;
+  applications?: Application[];
 }
 
-export default function RankedApplicationsTable({ jobId, refreshTrigger }: RankedApplicationsTableProps) {
+export default function RankedApplicationsTable(props: RankedApplicationsTableProps) {
+  const { jobId, refreshTrigger } = props;
   const [applications, setApplications] = useState<Application[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -140,8 +142,33 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
   const [stageCounts, setStageCounts] = useState<Array<{stage: string, count: number}>>([]);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+
+  useEffect(() => {
+    if (isKekaJob && props.applications) {
+      setApplications(props.applications);
+      setTotal(props.applications.length);
+      setLoading(false);
+    }
+  }, [props.applications, isKekaJob]);
+
   const loadApplications = useCallback(async (isBackground = false) => {
     if (!jobId) return;
+
+    // Schema Check: If it's a Keka UUID, short-circuit and rely on props
+    if (isKekaJob) {
+      if (props.applications) {
+        setApplications(props.applications);
+        setTotal(props.applications.length);
+      } else {
+        setApplications([]);
+        setTotal(0);
+      }
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (!isBackground) setLoading(true);
     else setRefreshing(true);
     try {
@@ -161,7 +188,7 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
       setLoading(false);
       setRefreshing(false);
     }
-  }, [jobId, stageFilter, search, sortField, sortDir, refreshTrigger]);
+  }, [jobId, stageFilter, search, sortField, sortDir, refreshTrigger, props.applications]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
 
@@ -176,7 +203,11 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
     };
   }, [loadApplications]);
 
-  async function openDetail(appId: number) {
+  async function openDetail(appId: number | string) {
+    if (typeof appId === 'string' && String(appId).includes('-')) {
+      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+      return;
+    }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<ApplicationDetail>('local_aurahr_jobs_get_application', { applicationid: appId });

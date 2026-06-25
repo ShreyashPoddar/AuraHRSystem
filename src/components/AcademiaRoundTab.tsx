@@ -7,7 +7,7 @@ import { moodleCall } from '@/lib/moodle';
 import AssessmentBuilder from '@/components/AssessmentBuilder';
 
 interface AcademiaRoundTabProps {
-  jobId: number;
+  jobId: number | string;
   aiPassCount?: number | null;
 }
 
@@ -137,6 +137,14 @@ export default function AcademiaRoundTab({ jobId }: AcademiaRoundTabProps) {
 
   useEffect(() => {
     async function load() {
+      if (!jobId) return;
+      
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        setDescription('External ATS jobs do not currently support native Academia Rounds.');
+        return;
+      }
+
       try {
         const jobData = await moodleCall<any>('local_aurahr_jobs_get_job', { jobid: jobId });
         if (jobData.jd_analysis) {

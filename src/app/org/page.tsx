@@ -110,7 +110,7 @@ export default function OrgOverviewPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-7xl">
+    <div className="space-y-8 flex-1 w-full">
       {/* Page Header */}
       <motion.div {...fadeUp} transition={{ delay: 0 }}>
         <h1 className="font-serif text-3xl font-bold text-ink tracking-tight">Overview</h1>

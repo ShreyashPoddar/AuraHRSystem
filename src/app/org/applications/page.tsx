@@ -19,6 +19,7 @@ interface Job {
   deadline: number;
   timecreated: number;
   timemodified: number;
+  _fromKeka?: boolean;
 }
 
 const statusBadge: Record<string, string> = {
@@ -39,8 +40,49 @@ export default function ApplicationsPage() {
 
   async function loadJobs() {
     try {
+      // Load Moodle jobs
       const res = await moodleCall<{ jobs: Job[] }>('local_aurahr_jobs_list_jobs', { status: 'all' });
-      setJobs(res.jobs);
+      const moodleJobs = res.jobs;
+
+      // Load Keka jobs
+      let kekaJobs: Job[] = [];
+      try {
+        const kekaRes = await fetch('/api/keka/sync-jobs');
+        const kekaData = await kekaRes.json();
+        if (kekaData.success && Array.isArray(kekaData.jobs)) {
+          const moodleIds = new Set(moodleJobs.map((j) => j.id));
+          const baseKekaJobs = kekaData.jobs.filter((kj: any) => !moodleIds.has(kj.id));
+          
+          kekaJobs = await Promise.all(baseKekaJobs.map(async (kj: any) => {
+            let count = kj.candidateCount ?? 0;
+            if (count === 0) {
+               try {
+                 const cRes = await fetch(`/api/keka/sync-candidates?jobId=${kj.id}`);
+                 const cData = await cRes.json();
+                 if (cData.success && Array.isArray(cData.candidates)) {
+                   count = cData.candidates.length;
+                 }
+               } catch(e) {}
+            }
+            return {
+              id: kj.id,
+              title: kj.title || kj.jobTitle || 'Untitled',
+              description: '',
+              department: kj.department || kj.departmentName || '',
+              status: 'active',
+              application_count: count,
+              deadline: 0,
+              timecreated: 0,
+              timemodified: 0,
+              _fromKeka: true,
+            };
+          }));
+        }
+      } catch (kekaErr) {
+        console.warn('Keka job sync failed:', kekaErr);
+      }
+
+      setJobs([...moodleJobs, ...kekaJobs]);
     } catch (err) {
       console.error('Failed to load jobs:', err);
     } finally {
@@ -62,7 +104,7 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 flex-1 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -125,11 +167,16 @@ export default function ApplicationsPage() {
                     <FileText size={20} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-sans text-sm font-semibold text-ink group-hover:text-sage transition-colors truncate">
-                      {job.title}
+                    <h3 className="font-sans text-sm font-semibold text-ink group-hover:text-sage transition-colors flex items-center gap-2">
+                      <span className="truncate">{job.title}</span>
+                      {job._fromKeka && (
+                        <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-teal-500/15 text-teal-600 border border-teal-500/20 tracking-wide uppercase">
+                          Keka
+                        </span>
+                      )}
                     </h3>
                     <p className="text-xs text-ink/40 mt-0.5">
-                      {job.department || 'General'} · Created {formatDate(job.timecreated)}
+                      {job.department || 'General'} {job.timecreated ? `· Created ${formatDate(job.timecreated)}` : ''}
                     </p>
                   </div>
                 </div>

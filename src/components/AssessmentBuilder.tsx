@@ -25,7 +25,6 @@ export interface Question {
   correctAnswer?: string; // for MCQ, short_answer
   testCases?: TestCase[]; // for coding
   points: number;
-  points: number;
 }
 
 export interface AssessmentBuilderProps {

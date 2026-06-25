@@ -134,7 +134,7 @@ class get_assessment extends external_api {
         return new external_single_structure([
             'exists'          => new external_value(PARAM_BOOL, 'Whether assessment exists'),
             'id'              => new external_value(PARAM_INT, 'Assessment ID'),
-            'jobid'           => new external_value(PARAM_INT, 'Job ID', DEFAULT),
+            'jobid'           => new external_value(PARAM_INT, 'Job ID', VALUE_DEFAULT),
             'title'           => new external_value(PARAM_TEXT, 'Title'),
             'num_questions'   => new external_value(PARAM_INT, 'Questions count', VALUE_DEFAULT),
             'duration_mins'   => new external_value(PARAM_INT, 'Duration', VALUE_DEFAULT),
