@@ -1,4 +1,17 @@
+// ── Module-level token cache ──────────────────────────────────────────────────
+// Stores the token and expiry time across all calls within the same server
+// process lifetime. This prevents hammering login.keka.com once per candidate
+// during bulk operations, which causes ConnectTimeoutError / ENOTFOUND crashes.
+let cachedToken: string | null = null;
+let tokenExpiry: number | null = null;
+
 export async function getKekaAccessToken(): Promise<string> {
+  // Return cached token if still valid (with 60-second safety buffer already applied)
+  if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
+    console.log('[Keka Auth] Returning cached token, expires in', Math.round((tokenExpiry - Date.now()) / 1000), 's');
+    return cachedToken;
+  }
+
   const clientId = process.env.KEKA_CLIENT_ID;
   const clientSecret = process.env.KEKA_CLIENT_SECRET;
   const apiKey = process.env.KEKA_API_KEY;
@@ -20,6 +33,7 @@ export async function getKekaAccessToken(): Promise<string> {
   });
 
   try {
+    console.log('[Keka Auth] Fetching fresh access token from', domain);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -40,8 +54,18 @@ export async function getKekaAccessToken(): Promise<string> {
       throw new Error('No access_token returned from Keka API');
     }
 
-    return data.access_token;
+    // Cache the token. Subtract 60 seconds from expires_in as a safety buffer
+    // to avoid using a token that's about to expire mid-bulk-operation.
+    const expiresInMs = ((data.expires_in ?? 3600) - 60) * 1000;
+    cachedToken = data.access_token;
+    tokenExpiry = Date.now() + expiresInMs;
+    console.log('[Keka Auth] Token cached, valid for', Math.round(expiresInMs / 1000), 's');
+
+    return cachedToken;
   } catch (error) {
+    // Invalidate cache on error so the next call retries the auth
+    cachedToken = null;
+    tokenExpiry = null;
     console.error('Error in getKekaAccessToken:', error);
     throw error;
   }

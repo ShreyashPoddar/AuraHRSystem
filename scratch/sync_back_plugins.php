@@ -1,7 +1,7 @@
 <?php
 $src = 'C:/xampp/htdocs/moodle/local';
-$dst1 = 'c:/Users/shrey/Desktop/AuraHR/backend-moodle-plugins/local';
-$dst2 = 'c:/Users/shrey/Desktop/AuraHR/AuraHR/moodle-plugins/local';
+$dst1 = dirname(__DIR__, 2) . '/backend-moodle-plugins/local';
+$dst2 = dirname(__DIR__) . '/moodle-plugins/local';
 
 function recurse_copy_clean($src, $dst) {
     if (!is_dir($src)) return;

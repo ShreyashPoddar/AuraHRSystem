@@ -12,6 +12,7 @@ import RadarChart from '@/components/RadarChart';
 import {
   STAGE_META,
   getManualMoveOptions,
+  getFullStandardManualOptions,
   type PipelineStage,
   PIPELINE_STAGES,
   normaliseLegacyStage,
@@ -37,6 +38,8 @@ interface Application {
   recruiter_rating: number;
   timecreated: number;
   timemodified: number;
+  resumeUrl?: string | null;
+  kekaId?: string | null; // KEKA candidate UUID — needed for lazy resume fetch
 }
 
 interface ApplicationDetail {
@@ -137,9 +140,12 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [selectedApp, setSelectedApp] = useState<ApplicationDetail | null>(null);
+  const [selectedApp, setSelectedApp] = useState<string | number | null>(null);
+  const [moodleDetails, setMoodleDetails] = useState<ApplicationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [stageCounts, setStageCounts] = useState<Array<{stage: string, count: number}>>([]);
+  const [stageCounts, setStageCounts] = useState<Array<{ stage: string, count: number }>>([]);
+  const [loadingResumeId, setLoadingResumeId] = useState<number | string | null>(null);
+  const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
@@ -203,15 +209,17 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
     };
   }, [loadApplications]);
 
-  async function openDetail(appId: number | string) {
+  async function openDetail(app: any) {
+    const appId = typeof app === 'object' ? app.id : app;
+    setSelectedApp(appId); // Store ID for live state sync
     if (typeof appId === 'string' && String(appId).includes('-')) {
-      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+      // Keka candidates don't need additional fetching
       return;
     }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<ApplicationDetail>('local_aurahr_jobs_get_application', { applicationid: appId });
-      setSelectedApp(detail);
+      setMoodleDetails(detail);
     } catch (err) {
       console.error(err);
     } finally {
@@ -258,9 +266,8 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setStageFilter('')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-              stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-            }`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+              }`}
           >
             All ({stageCounts.reduce((acc, curr) => acc + curr.count, 0)})
           </button>
@@ -268,11 +275,10 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
             <button
               key={s.stage}
               onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                stageFilter === s.stage
-                  ? getStageBadgeClass(s.stage)
-                  : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${stageFilter === s.stage
+                ? getStageBadgeClass(s.stage)
+                : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+                }`}
             >
               {getStageLabel(s.stage)} ({s.count})
             </button>
@@ -299,9 +305,8 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
             <button
               key={f}
               onClick={() => toggleSort(f)}
-              className={`px-2 py-1 rounded-lg transition-colors ${
-                sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
-              }`}
+              className={`px-2 py-1 rounded-lg transition-colors ${sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
+                }`}
             >
               {f.replace('_', ' ').replace('timecreated', 'date')}
               {sortField === f && (
@@ -327,104 +332,187 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px]">
               <thead>
-              <tr className="border-b border-ink/8 bg-warm-sand/30">
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Stage</th>
-                <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Malpractice</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider whitespace-nowrap">Overall Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {applications.map((app, idx) => (
-                <motion.tr
-                  key={app.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className="border-b border-ink/5 hover:bg-warm-sand/20 transition-colors group"
-                >
-                  <td className="px-5 py-4">
-                    <span className="text-xs font-mono text-ink/40 font-medium">{idx + 1}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div 
-                      className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => openDetail(app.id)}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage/40 to-gold/40 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {app.firstname[0]}{app.lastname[0]}
+                <tr className="border-b border-ink/8 bg-warm-sand/30">
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
+                  <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Resume</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Stage</th>
+                  <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Malpractice</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider whitespace-nowrap">Overall Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((app, idx) => (
+                  <motion.tr
+                    key={app.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className="border-b border-ink/5 hover:bg-warm-sand/20 transition-colors group"
+                  >
+                    <td className="px-5 py-4">
+                      <span className="text-xs font-mono text-ink/40 font-medium">{idx + 1}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => openDetail(app)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage/40 to-gold/40 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          {app.firstname[0]}{app.lastname[0]}
+                        </div>
+                        <p className="text-sm font-semibold text-ink truncate max-w-[150px] hover:text-sage transition-colors">{app.firstname} {app.lastname}</p>
                       </div>
-                      <p className="text-sm font-semibold text-ink truncate max-w-[150px] hover:text-sage transition-colors">{app.firstname} {app.lastname}</p>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
-                    {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.academia_score)}`}>
-                    {app.academia_score !== null && app.academia_score !== undefined ? `${app.academia_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.interview_score)}`}>
-                    {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className="px-5 py-4">
-                    {/* Micro-stage badge with animated dot for live states */}
-                    <div className="flex items-center gap-2">
-                      {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
-                        <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      {(() => {
+                        // For Keka candidates, app.id IS the Keka UUID.
+                        // app.kekaId is an optional override; fall back to app.id when it's a UUID.
+                        const effectiveKekaId: string | null =
+                          app.kekaId ||
+                          (typeof app.id === 'string' && String(app.id).includes('-') ? String(app.id) : null);
+
+                        // Priority: local state cache > prop from server > not loaded
+                        const url = resolvedUrls[String(app.id)] ?? app.resumeUrl;
+
+                        if (loadingResumeId === app.id) {
+                          return <Loader2 size={16} className="animate-spin text-ink/30 mx-auto" />;
+                        }
+
+                        if (url) {
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(url, '_blank');
+                              }}
+                              className="text-slate-400 hover:text-green-700 transition-colors inline-flex items-center justify-center p-1"
+                              title="View Resume"
+                            >
+                              <FileText size={18} />
+                            </button>
+                          );
+                        }
+
+                        if (!effectiveKekaId) {
+                          // Non-Keka candidate with no resume URL — static dash
+                          return <span className="text-ink/20">—</span>;
+                        }
+
+                        // Resume not yet fetched — clickable dash triggers lazy fetch
+                        return (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setLoadingResumeId(app.id);
+                              try {
+                                const params = new URLSearchParams({
+                                  email: app.email,
+                                  kekaId: effectiveKekaId,
+                                });
+                                const res = await fetch(`/api/keka/candidate-resume?${params}`);
+                                const data = await res.json();
+                                if (data.success && data.url) {
+                                  setResolvedUrls(prev => ({ ...prev, [String(app.id)]: data.url }));
+                                  window.open(data.url, '_blank');
+                                }
+                                // If no URL returned, silently revert to dash
+                              } catch {
+                                // Network error — silently revert to dash
+                              } finally {
+                                setLoadingResumeId(null);
+                              }
+                            }}
+                            className="text-ink/30 hover:text-green-700 transition-colors inline-flex items-center justify-center p-1 group"
+                            title="Click to load resume"
+                          >
+                            <FileText size={16} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
+                      {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.academia_score)}`}>
+                      {app.academia_score !== null && app.academia_score !== undefined ? `${app.academia_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.interview_score)}`}>
+                      {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className="px-5 py-4">
+                      {/* Micro-stage badge with animated dot for live states */}
+                      <div className="flex items-center gap-2">
+                        {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                        )}
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${getStageBadgeClass(app.stage)}`}>
+                          {getStageLabel(app.stage)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-center whitespace-nowrap">
+                      {app.malpractice >= 5 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rust/10 text-rust rounded-lg text-xs font-bold border border-rust/20" title={`${app.malpractice} violations (Disqualified)`}>
+                          <AlertTriangle size={12} />
+                          <span>{app.malpractice} (Disqualified)</span>
+                        </span>
+                      ) : app.malpractice > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 rounded-lg text-xs font-bold border border-amber-200/50" title={`${app.malpractice} violations flagged`}>
+                          <AlertTriangle size={12} />
+                          <span>{app.malpractice} Flags</span>
+                        </span>
+                      ) : (
+                        <span className="text-ink/20 font-medium">—</span>
                       )}
-                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${getStageBadgeClass(app.stage)}`}>
-                        {getStageLabel(app.stage)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-center whitespace-nowrap">
-                    {app.malpractice >= 5 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rust/10 text-rust rounded-lg text-xs font-bold border border-rust/20" title={`${app.malpractice} violations (Disqualified)`}>
-                        <AlertTriangle size={12} />
-                        <span>{app.malpractice} (Disqualified)</span>
-                      </span>
-                    ) : app.malpractice > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 rounded-lg text-xs font-bold border border-amber-200/50" title={`${app.malpractice} violations flagged`}>
-                        <AlertTriangle size={12} />
-                        <span>{app.malpractice} Flags</span>
-                      </span>
-                    ) : (
-                      <span className="text-ink/20 font-medium">—</span>
-                    )}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-bold ${scoreColor(app.overall_score)}`}>
-                    {app.overall_score !== null && app.overall_score !== undefined ? `${app.overall_score.toFixed(1)}` : '—'}
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-bold ${scoreColor(app.overall_score)}`}>
+                      {app.overall_score !== null && app.overall_score !== undefined ? `${app.overall_score.toFixed(1)}` : '—'}
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* Candidate Detail Popup */}
       <AnimatePresence>
-        {(selectedApp || detailLoading) && (
-          <CandidateDetailPopup
-            app={selectedApp}
-            loading={detailLoading}
-            onClose={() => setSelectedApp(null)}
-            onStageUpdate={loadApplications}
-          />
-        )}
+        {selectedApp && (() => {
+          const liveApp = applications.find(a => String(a.id) === String(selectedApp));
+          const activeCandidate = moodleDetails && String(moodleDetails.id) === String(selectedApp)
+            ? { ...moodleDetails, ...liveApp }
+            : liveApp;
+          return activeCandidate ? (
+            <CandidateDetailPopup
+              app={activeCandidate as any}
+              loading={detailLoading}
+              onClose={() => {
+                setSelectedApp(null);
+                setMoodleDetails(null);
+              }}
+              onStageUpdate={(newStage?: string, appId?: string) => {
+                if (newStage && appId) {
+                  setApplications(prev => prev.map(a => String(a.id) === appId ? { ...a, stage: newStage } : a));
+                } else {
+                  loadApplications();
+                }
+              }}
+            />
+          ) : null;
+        })()}
       </AnimatePresence>
     </div>
   );
@@ -441,13 +529,26 @@ function CandidateDetailPopup({
   app: ApplicationDetail | null;
   loading: boolean;
   onClose: () => void;
-  onStageUpdate: () => void;
+  onStageUpdate: (newStage?: string, appId?: string) => void;
 }) {
   const [updating, setUpdating] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Flatten Metric Data Mapping
+  const isKekaJob = app && typeof app.id === 'string' && String(app.id).includes('-');
+  const jdScore = app?.jd_score ?? 0;
+  const overallScore = app?.overall_score ?? 0;
+  const isKekaEvaluated = isKekaJob && app?.jd_score !== undefined && app?.jd_score !== null;
+
   async function moveStage(newStage: string) {
     if (!app) return;
+
+    if (isKekaJob) {
+      onStageUpdate(newStage, String(app.id));
+      setShowDropdown(false);
+      return;
+    }
+
     setUpdating(true);
     setShowDropdown(false);
     try {
@@ -524,7 +625,9 @@ function CandidateDetailPopup({
                   </button>
                   <AnimatePresence>
                     {showDropdown && (() => {
-                      const options = getManualMoveOptions(app.stage);
+                      const options = isKekaJob
+                        ? getFullStandardManualOptions(app.stage)
+                        : getManualMoveOptions(app.stage);
                       const forwardOptions = options.filter(s => !isOverrideOption(s));
                       const overrideOptions = options.filter(s => isOverrideOption(s));
                       return (
@@ -560,11 +663,10 @@ function CandidateDetailPopup({
                                 <button
                                   key={s}
                                   onClick={() => moveStage(s)}
-                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${
-                                    STAGE_META[s]?.terminal
-                                      ? 'text-red-600 hover:bg-red-50'
-                                      : 'text-zinc-600 hover:bg-zinc-50'
-                                  }`}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${STAGE_META[s]?.terminal
+                                    ? 'text-red-600 hover:bg-red-50'
+                                    : 'text-zinc-600 hover:bg-zinc-50'
+                                    }`}
                                 >
                                   {s}
                                 </button>
@@ -593,7 +695,7 @@ function CandidateDetailPopup({
                   )}
                   {getStageLabel(app.stage)}
                 </span>
-                {getStageTooltip(app.stage) && (
+                {!isKekaJob && getStageTooltip(app.stage) && (
                   <p className="text-[10px] text-ink/40 mt-1 max-w-[220px] leading-snug">{getStageTooltip(app.stage)}</p>
                 )}
               </div>
@@ -649,10 +751,10 @@ function CandidateDetailPopup({
                   <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">Core Assessment Scores</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <ScoreCard label="JD Parser" value={app.jd_score} />
+                  <ScoreCard label="JD Parser" value={jdScore} />
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
-                  <ScoreCard label="Overall" value={app.overall_score} highlight />
+                  <ScoreCard label="Overall" value={overallScore} highlight />
                 </div>
               </div>
 
@@ -661,10 +763,10 @@ function CandidateDetailPopup({
                 <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-2 w-full">Performance Radar</p>
                 <div className="w-full h-40">
                   <RadarChart data={{
-                    technical: app.jd_score || 0,
+                    technical: jdScore || 0,
                     culture: app.interview_score || 0,
                     communication: app.interview_score || 0,
-                    leadership: app.overall_score || 0,
+                    leadership: overallScore || 0,
                     adaptability: app.academia_score || 0
                   }} />
                 </div>
@@ -675,7 +777,7 @@ function CandidateDetailPopup({
             <div>
               <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-3">Skill Sources & Scores</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
+                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={jdScore} />
               </div>
             </div>
 
@@ -696,7 +798,7 @@ function CandidateDetailPopup({
             {/* Join Interview Button */}
             {app.stage === 'Screening Scheduled' && (
               <div className="pt-2 border-t border-ink/10">
-                <button 
+                <button
                   onClick={() => window.location.href = `/org/interview/${app.id}`}
                   className="w-full py-3 bg-gold text-white rounded-xl text-sm font-bold shadow-md hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
                 >
@@ -714,7 +816,7 @@ function CandidateDetailPopup({
 function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null | undefined, skills?: string }) {
   if (score === null && !skills) return null;
   const validScore = (score !== null && score !== undefined) ? Math.min(100, Math.max(0, score)) : 0;
-  
+
   return (
     <div className="p-3.5 bg-white border border-ink/5 rounded-xl shadow-sm flex flex-col gap-2">
       <div className="flex items-center justify-between">

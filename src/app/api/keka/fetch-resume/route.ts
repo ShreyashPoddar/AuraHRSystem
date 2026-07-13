@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
 import { fetchCandidateResume } from '@/lib/kekaHire';
 
 import { parseResumeWithOCRSpace } from '@/lib/ocr_service';
@@ -101,29 +104,53 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 3: Local AI Parsing ───────────────────────────────────────────────
-    // Extract text from the PDF buffer
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-    const resumeText = await parseResumeWithOCRSpace(fileBuffer, filename);
+    let calculatedScore = 0;
+    let aiResult = null;
 
-    // Call Neev AI to score the resume against the provided Job Description
-    const prompt = `Evaluate the following resume against this job description and output a match score out of 100.
+    try {
+      // Extract text from the PDF buffer
+      const fileBuffer = Buffer.from(base64Data, 'base64');
+      const resumeText = await parseResumeWithOCRSpace(fileBuffer, filename);
+
+      // Call Neev AI to score the resume against the provided Job Description
+      const systemPrompt = `You are an expert, highly objective HR recruitment evaluator. Your job is to calculate a strict match score (0-100) between a candidate's resume and a job description. 
+
+You MUST return ONLY a valid JSON object with the following structure: { "score": number, "feedback": "string" }.`;
+
+      const prompt = `Evaluate the resume against the job description using this strict rubric:
+1. Core Skills (40 points): Does the candidate have the exact technical skills and tools listed? Subtract points for missing mandatory skills.
+2. Experience & Seniority (30 points): Does the candidate's years of experience and scope of past roles align with the job's level?
+3. Education & Certifications (15 points): Do they hold the required degrees or certifications?
+4. Domain Relevance (15 points): Is their past industry experience relevant to this specific role?
+
+Calculate the sum and return it as the 'score'. Keep 'feedback' under 3 sentences, explaining the biggest gaps.
+
 Job Description:
 ${jobDescription}
 
 Resume Text:
 ${resumeText}`;
-    
-    const systemPrompt = "You are an expert HR recruitment evaluator. Return a JSON object with 'score' (number) and 'feedback' (string).";
-    const aiResult = await getStructuredAIResponse<{score: number, feedback: string}>(prompt, systemPrompt);
-    
-    // Default to the generated score or fallback to 0
-    const calculatedScore = aiResult?.score || 0;
+      
+      console.log("--- AI INPUT VALIDATION ---");
+      console.log("Resume Text Length:", resumeText?.length || 0);
+      console.log("Job Description Length:", jobDescription?.length || 0);
+      aiResult = await getStructuredAIResponse<{score: number, feedback: string}>(prompt, systemPrompt);
+      
+      if (aiResult && typeof aiResult.score === 'number') {
+        calculatedScore = aiResult.score;
+      }
+    } catch (parsingError: any) {
+      console.error('[Local AI Parsing Error]', parsingError.message);
+      // On parsing or AI failure, we gracefully fallback to 0 instead of throwing 500.
+      calculatedScore = 0;
+      aiResult = { score: 0, feedback: "Failed to parse resume or evaluate candidate." };
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Candidate synced and parsed successfully',
       jdScore: calculatedScore,
-      analysis: aiResult || { score: calculatedScore, feedback: "Fallback AI evaluation" },
+      analysis: aiResult || { score: 0, feedback: "Fallback AI evaluation" },
     });
 
   } catch (error: any) {

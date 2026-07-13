@@ -1,11 +1,13 @@
 import OpenAI from 'openai';
 
-if (!process.env.NEEV_API_KEY || process.env.NEEV_API_KEY.includes("YOUR_KEY")) {
+const NEEV_KEY = process.env.NEEV_API_KEY || process.env.NEXT_PUBLIC_NEEV_API_KEY || '';
+
+if (!NEEV_KEY || NEEV_KEY.includes("YOUR_KEY")) {
   console.warn("NEEV_API_KEY is missing or placeholder. AI features will use high-fidelity Generative Mock mode.");
 }
 
 export const neev = new OpenAI({
-  apiKey: process.env.NEEV_API_KEY || 'mock-key',
+  apiKey: NEEV_KEY || 'mock-key',
   baseURL: process.env.NEEV_BASE_URL || 'https://inference.ai.neevcloud.com/v1',
 });
 
@@ -155,8 +157,9 @@ function getFallbackMockData<T>(prompt: string, systemPrompt: string): T {
  */
 export async function getStructuredAIResponse<T>(prompt: string, systemPrompt: string = "View as an expert HR analyst."): Promise<T | null> {
   // Check if we should use mock
-  if (!process.env.NEEV_API_KEY || process.env.NEEV_API_KEY.includes("YOUR_KEY")) {
-    return getFallbackMockData<T>(prompt, systemPrompt);
+  const keyToUse = process.env.NEEV_API_KEY || process.env.NEXT_PUBLIC_NEEV_API_KEY || '';
+  if (!keyToUse || keyToUse.includes("YOUR_KEY")) {
+    console.warn("NEEV_API_KEY is missing. Live LLM calls will fail.");
   }
 
   try {
@@ -168,13 +171,13 @@ export async function getStructuredAIResponse<T>(prompt: string, systemPrompt: s
       ],
       response_format: { type: 'json_object' },
       max_tokens: 1000,
+      temperature: 0,
     });
 
     const content = response.choices[0].message.content;
     return content ? JSON.parse(content) as T : null;
   } catch (error) {
     console.error("AI Response Error:", error);
-    // Final fallback to mock if AI fails
-    return getFallbackMockData<T>(prompt, systemPrompt);
+    return null;
   }
 }

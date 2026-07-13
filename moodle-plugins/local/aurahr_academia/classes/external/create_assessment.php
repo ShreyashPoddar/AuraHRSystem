@@ -19,19 +19,20 @@ class create_assessment extends external_api {
             'duration_mins'  => new external_value(PARAM_INT, 'Duration in minutes', VALUE_DEFAULT, 60),
             'pass_percentage' => new external_value(PARAM_FLOAT, 'Pass percentage', VALUE_DEFAULT, 60.0),
             'ai_topic'       => new external_value(PARAM_RAW, 'Topic/skills for AI question generation', VALUE_DEFAULT, ''),
+            'questions_json' => new external_value(PARAM_RAW, 'JSON array of questions to inject', VALUE_DEFAULT, ''),
         ]);
     }
 
     public static function execute(
         int $jobid, string $title, int $num_questions,
-        int $duration_mins, float $pass_percentage, string $ai_topic
+        int $duration_mins, float $pass_percentage, string $ai_topic, string $questions_json = ''
     ): array {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'jobid' => $jobid, 'title' => $title, 'num_questions' => $num_questions,
             'duration_mins' => $duration_mins, 'pass_percentage' => $pass_percentage,
-            'ai_topic' => $ai_topic,
+            'ai_topic' => $ai_topic, 'questions_json' => $questions_json,
         ]);
 
         $context = \context_system::instance();
@@ -41,6 +42,15 @@ class create_assessment extends external_api {
         $DB->get_record('local_aurahr_jobs', ['id' => $params['jobid']], 'id', MUST_EXIST);
 
         $now = time();
+
+        // Delete any pre-existing DRAFT assessments for this job to avoid orphaned shadows.
+        // Completed/active/scheduled assessments are kept untouched so historical scores are preserved.
+        $DB->delete_records_select(
+            'local_aurahr_assessments',
+            "jobid = :jobid AND status = 'draft'",
+            ['jobid' => $params['jobid']]
+        );
+
         $record = (object)[
             'jobid'          => $params['jobid'],
             'title'          => $params['title'],
@@ -49,6 +59,7 @@ class create_assessment extends external_api {
             'pass_percentage' => $params['pass_percentage'],
             'status'         => 'draft',
             'ai_topic'       => $params['ai_topic'],
+            'questions'      => $params['questions_json'],
             'timecreated'    => $now,
             'timemodified'   => $now,
         ];

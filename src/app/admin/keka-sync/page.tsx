@@ -104,7 +104,18 @@ export default function KekaSyncPage() {
     addLog(`[Step 1/3] Server-side Keka OAuth handshake initiated...`, 'info');
     
     try {
-      const res = await fetch(`/api/keka/fetch-resume?id=${candidateId}&email=${encodeURIComponent(email || '')}`);
+      const selectedJob = jobs.find((j) => String(j.id) === String(selectedJobId));
+      const jobDesc = selectedJob?.description || selectedJob?.jobDescription || selectedJob?.requirements || selectedJob?.profile || 'No description';
+
+      const res = await fetch(`/api/keka/fetch-resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: candidateId,
+          email: email || '',
+          jobDescription: jobDesc
+        })
+      });
       const data = await res.json();
       
       if (data.success) {

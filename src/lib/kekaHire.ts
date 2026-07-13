@@ -12,6 +12,7 @@ export async function fetchCandidateResume(candidateId: string): Promise<any> {
         'Accept': 'application/json',
       },
       cache: 'no-store',
+      signal: AbortSignal.timeout(12_000), // fail fast — do not hang
     });
 
     if (!response.ok) {
@@ -22,18 +23,20 @@ export async function fetchCandidateResume(candidateId: string): Promise<any> {
 
     const data = await response.json();
     console.log('Keka Raw Response:', data);
-    
+
     const fileUrl = data?.data?.fileUrl;
     if (!fileUrl) {
       return { error: "No fileUrl found", rawKekaData: data };
     }
 
-    // Download the actual file from the secure URL
-    const fileResponse = await fetch(fileUrl);
+    // Download the actual file from the secure AWS link
+    const fileResponse = await fetch(fileUrl, {
+      signal: AbortSignal.timeout(20_000), // large files may be slow but should finish within 20 s
+    });
     if (!fileResponse.ok) {
       throw new Error(`Failed to download file from Keka AWS link. Status: ${fileResponse.status}`);
     }
-    
+
     // Convert to ArrayBuffer then to Base64
     const arrayBuffer = await fileResponse.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString('base64');

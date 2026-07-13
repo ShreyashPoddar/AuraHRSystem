@@ -20,30 +20,29 @@ class get_proctor_report extends external_api {
     }
 
     public static function execute(string $sessiontype, int $sessionid): array {
-        global $DB;
+        global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'sessiontype' => $sessiontype, 'sessionid' => $sessionid,
         ]);
 
         $context = \context_system::instance();
-        $hascap = has_capability('local/aurahr_interview:viewproctor', $context);
 
+        // Check if the current user is the owner/candidate of the session.
         $isowner = false;
-        global $USER;
         if ($params['sessiontype'] === 'interview') {
-            $interview = $DB->get_record('local_aurahr_interviews', ['id' => $params['sessionid']], '*', IGNORE_MISSING);
+            $interview = $DB->get_record('local_aurahr_interviews', ['id' => $params['sessionid']], 'candidateid');
             if ($interview && $interview->candidateid == $USER->id) {
                 $isowner = true;
             }
         } else if ($params['sessiontype'] === 'academia') {
-            $enrol = $DB->get_record('local_aurahr_assess_enrol', ['id' => $params['sessionid']], '*', IGNORE_MISSING);
+            $enrol = $DB->get_record('local_aurahr_assess_enrol', ['id' => $params['sessionid']], 'userid');
             if ($enrol && $enrol->userid == $USER->id) {
                 $isowner = true;
             }
         }
 
-        if (!$hascap && !$isowner) {
+        if (!$isowner) {
             require_capability('local/aurahr_interview:viewproctor', $context);
         }
 

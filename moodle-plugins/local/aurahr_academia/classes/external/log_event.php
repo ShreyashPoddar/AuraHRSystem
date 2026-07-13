@@ -51,7 +51,7 @@ class log_event extends external_api {
                 
                 // If violation count is 5 or more, automatically disqualify (reject) candidate
                 if ($app->malpractice >= 5) {
-                    $app->stage = 'rejected';
+                    $app->stage = 'Rejected';
                     $flagged = true;
                 }
                 $DB->update_record('local_aurahr_applications', $app);

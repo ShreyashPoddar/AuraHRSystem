@@ -42,6 +42,8 @@ class submit_score extends external_api {
         $app = $DB->get_record('local_aurahr_applications', ['id' => $interview->applicationid]);
         if ($app) {
             $app->interview_score = $params['interviewer_score'];
+            $app->recruiter_feedback = $params['interviewer_notes'];
+            $app->recruiter_rating = $params['interviewer_score'];
             // Recalculate overall.
             $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
             $app->timemodified = time();

@@ -14,10 +14,8 @@ export async function GET(request: NextRequest) {
   try {
     const candidates = await fetchKekaCandidates(jobId);
     return NextResponse.json({ success: true, count: candidates.length, candidates });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Unknown error occurred' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

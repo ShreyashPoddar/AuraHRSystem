@@ -13,6 +13,7 @@ import ExpandableJD from '@/components/ExpandableJD';
 import {
   STAGE_META,
   getManualMoveOptions,
+  getFullStandardManualOptions,
   type PipelineStage,
   normaliseLegacyStage,
   isOverrideOption,
@@ -35,6 +36,7 @@ interface Application {
   recruiter_rating: number;
   timecreated: number;
   timemodified: number;
+  resumeUrl?: string | null;
 }
 
 interface Job {
@@ -235,9 +237,28 @@ export default function ApplicationDetailPage() {
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, [loadApplications]);
 
-  async function openDetail(appId: number | string) {
-    if (typeof appId === 'string' && appId.includes('-')) {
-      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+  async function openDetail(app: any) {
+    const appId = typeof app === 'object' ? app.id : app;
+    if (typeof appId === 'string' && String(appId).includes('-')) {
+      setSelectedApp({
+        id: app.id,
+        applicationid: app.id,
+        firstname: app.firstname || 'Unknown',
+        lastname: app.lastname || '',
+        email: app.email || '',
+        stage: app.stage || 'Imported',
+        status: app.status || 'Active',
+        role: job?.title || '',
+        jd_score: app.jd_score || 0,
+        academia_score: app.academia_score || 0,
+        interview_score: app.interview_score || 0,
+        overall_score: app.overall_score || 0,
+        age: 0,
+        gender: '',
+        phone: app.phone || '',
+        malpractice: app.malpractice || 0,
+        recruiter_rating: app.recruiter_rating || 0
+      } as any);
       return;
     }
     setDetailLoading(true);
@@ -304,7 +325,16 @@ export default function ApplicationDetailPage() {
         setKekaStatus(`Parsing ${synced + 1}/${list.length}: ${candidate.email || candidate.id}...`);
         try {
           await fetch(
-            `/api/keka/fetch-resume?id=${encodeURIComponent(candidate.id)}&email=${encodeURIComponent(candidate.email || '')}`,
+            `/api/keka/fetch-resume`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: candidate.id,
+                email: candidate.email || '',
+                jobDescription: job?.description || "No job description"
+              })
+            }
           );
           synced++;
         } catch (parseErr) {
@@ -528,6 +558,7 @@ export default function ApplicationDetailPage() {
               <tr className="border-b border-ink/8 bg-warm-sand/30">
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
+                <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Resume</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
                 <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
                 <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
@@ -553,13 +584,29 @@ export default function ApplicationDetailPage() {
                   <td className="px-5 py-4">
                     <div 
                       className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => openDetail(app.id)}
+                      onClick={() => openDetail(app)}
                     >
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage/40 to-gold/40 flex items-center justify-center text-white text-xs font-bold shrink-0">
                         {app.firstname[0]}{app.lastname[0]}
                       </div>
                       <p className="text-sm font-semibold text-ink truncate max-w-[150px] hover:text-sage transition-colors">{app.firstname} {app.lastname}</p>
                     </div>
+                  </td>
+                  <td className="px-5 py-4 text-center">
+                    {app.resumeUrl ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(app.resumeUrl as string, '_blank');
+                        }}
+                        className="text-slate-400 hover:text-green-700 transition-colors inline-flex items-center justify-center p-1"
+                        title="View Resume"
+                      >
+                        <FileText size={18} />
+                      </button>
+                    ) : (
+                      <span className="text-ink/20">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
@@ -613,12 +660,18 @@ export default function ApplicationDetailPage() {
 
       {/* Candidate Detail Popup */}
       <AnimatePresence>
-        {(selectedApp || detailLoading) && (
+        {selectedApp && (
           <CandidateDetailPopup
             app={selectedApp}
             loading={detailLoading}
             onClose={() => setSelectedApp(null)}
-            onStageUpdate={loadApplications}
+            onStageUpdate={(newStage?: string, appId?: string) => {
+              if (newStage && appId) {
+                setApplications(prev => prev.map(a => String(a.id) === appId ? { ...a, stage: newStage } : a));
+              } else {
+                loadApplications();
+              }
+            }}
           />
         )}
       </AnimatePresence>
@@ -637,14 +690,28 @@ function CandidateDetailPopup({
   app: ApplicationDetail | null;
   loading: boolean;
   onClose: () => void;
-  onStageUpdate: () => void;
+  onStageUpdate: (newStage?: string, appId?: string) => void;
 }) {
   const [updating, setUpdating] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Flatten Metric Data Mapping
+  const isKekaJob = app && typeof app.id === 'string' && String(app.id).includes('-');
+  const jdScore = app?.jdScore ?? app?.details?.jdScore ?? app?.jd_score ?? 0;
+  const overallScore = app?.overallScore ?? app?.details?.overallScore ?? app?.overall_score ?? 0;
+  const isKekaEvaluated = isKekaJob && app?.jdScore !== undefined;
+
   async function moveStage(newStage: string) {
     if (!app) return;
+    
+    if (isKekaJob) {
+      onStageUpdate(newStage, String(app.id));
+      setShowDropdown(false);
+      return;
+    }
+
     setUpdating(true);
+    setShowDropdown(false);
     try {
       await moodleCall('local_aurahr_jobs_update_stage', {
         applicationid: app.id,
@@ -714,7 +781,9 @@ function CandidateDetailPopup({
                   </button>
                   <AnimatePresence>
                     {showDropdown && (() => {
-                      const options = getManualMoveOptions(app.stage);
+                      const options = isKekaJob
+                        ? getFullStandardManualOptions(app.stage)
+                        : getManualMoveOptions(app.stage);
                       const forwardOptions = options.filter(s => !isOverrideOption(s));
                       const overrideOptions = options.filter(s => isOverrideOption(s));
                       return (
@@ -802,7 +871,7 @@ function CandidateDetailPopup({
                   )}
                   {getStageLabel(app.stage)}
                 </span>
-                {getStageTooltip(app.stage) && (
+                {!isKekaJob && getStageTooltip(app.stage) && (
                   <p className="text-[10px] text-ink/40 mt-1 max-w-[220px] leading-snug">{getStageTooltip(app.stage)}</p>
                 )}
               </div>
@@ -839,10 +908,10 @@ function CandidateDetailPopup({
                   <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">Core Assessment Scores</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <ScoreCard label="JD Parser" value={app.jd_score} />
+                  <ScoreCard label="JD Parser" value={jdScore} />
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
-                  <ScoreCard label="Overall" value={app.overall_score} highlight />
+                  <ScoreCard label="Overall" value={overallScore} highlight />
                 </div>
               </div>
 
@@ -851,10 +920,10 @@ function CandidateDetailPopup({
                 <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-2 w-full">Performance Radar</p>
                 <div className="w-full h-40">
                   <RadarChart data={{
-                    technical: app.jd_score || 0,
+                    technical: jdScore || 0,
                     culture: app.interview_score || 0,
                     communication: app.interview_score || 0,
-                    leadership: app.overall_score || 0,
+                    leadership: overallScore || 0,
                     adaptability: app.academia_score || 0
                   }} />
                 </div>
@@ -865,7 +934,7 @@ function CandidateDetailPopup({
             <div>
               <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-3">Skill Sources & Scores</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
+                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={jdScore} />
               </div>
             </div>
 

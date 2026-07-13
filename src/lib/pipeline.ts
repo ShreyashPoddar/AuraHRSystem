@@ -235,6 +235,21 @@ export function getManualMoveOptions(currentStage: string): PipelineStage[] {
   return [...candidates, ...overrides.filter(o => o !== currentStage)];
 }
 
+export function getFullStandardManualOptions(currentStage: string): PipelineStage[] {
+  const overrides = OVERRIDE_STAGES;
+  const forwardOptions: PipelineStage[] = [
+    'Shortlisted',
+    'Screening Scheduled',
+    'Screening Cleared',
+    'Assessment Invited',
+    'Assessment Cleared',
+    'Hired / Offer stage',
+  ];
+  
+  const candidates = forwardOptions.filter(s => s !== currentStage);
+  return [...candidates, ...overrides.filter(o => o !== currentStage)];
+}
+
 export function isOverrideOption(stage: string): boolean {
   return OVERRIDE_STAGES.includes(stage as PipelineStage);
 }

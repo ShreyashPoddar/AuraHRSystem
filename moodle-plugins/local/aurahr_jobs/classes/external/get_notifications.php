@@ -23,11 +23,11 @@ class get_notifications extends external_api {
 
         $notifications = [];
 
-        // 1. Check for jobs with applications in 'screened' stage (Needs Assessment scheduling).
+        // 1. Check for jobs with applications in 'Shortlisted' stage (Needs Assessment scheduling).
         $sql1 = "SELECT j.id, j.title, COUNT(a.id) as count, MAX(a.timecreated) as last_time
                  FROM {local_aurahr_jobs} j
                  JOIN {local_aurahr_applications} a ON a.jobid = j.id
-                 WHERE a.stage = 'screened'
+                 WHERE a.stage = 'Shortlisted'
                  GROUP BY j.id, j.title";
         $screened_jobs = $DB->get_records_sql($sql1);
         foreach ($screened_jobs as $job) {
@@ -41,11 +41,11 @@ class get_notifications extends external_api {
             ];
         }
 
-        // 2. Check for jobs with applications in 'applied' stage (Needs screening).
+        // 2. Check for jobs with applications in 'Imported' or 'Under AI Screening' stage (Needs screening).
         $sql2 = "SELECT j.id, j.title, COUNT(a.id) as count, MAX(a.timecreated) as last_time
                  FROM {local_aurahr_jobs} j
                  JOIN {local_aurahr_applications} a ON a.jobid = j.id
-                 WHERE a.stage = 'applied'
+                 WHERE a.stage = 'Imported' OR a.stage = 'Under AI Screening'
                  GROUP BY j.id, j.title";
         $applied_jobs = $DB->get_records_sql($sql2);
         foreach ($applied_jobs as $job) {

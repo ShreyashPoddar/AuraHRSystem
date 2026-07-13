@@ -63,7 +63,7 @@ class get_application extends external_api {
             $prefs = $user_prefs_json ? (json_decode($user_prefs_json, true) ?: []) : [];
         }
 
-        return [
+        $res = [
             'id'                 => (int)$record->id,
             'userid'             => (int)$record->userid,
             'jobid'              => (int)$record->jobid,
@@ -77,18 +77,12 @@ class get_application extends external_api {
             'country'            => $record->country ?? '',
             'bio'                => $record->user_bio ?? '',
             'stage'              => $record->stage,
-            'jd_score'           => (float)($record->jd_score ?? 0),
-            'academia_score'     => (float)($record->academia_score ?? 0),
-            'interview_score'    => (float)($record->interview_score ?? 0),
-            'overall_score'      => (float)($record->overall_score ?? 0),
             'malpractice'        => (int)$record->malpractice,
             'age'                => $record->age !== null ? (int)$record->age : null,
             'gender'             => $record->gender ?? '',
             'role'               => $record->role ?? '',
             'education_details'  => $record->education_details ?? '',
             'resume_skills'      => $record->resume_skills ?? '',
-            'github_score'       => $record->github_score !== null ? (float)$record->github_score : null,
-            'leetcode_score'     => $record->leetcode_score !== null ? (float)$record->leetcode_score : null,
             'github_url'         => $record->github_url ?? '',
             'leetcode_url'       => $record->leetcode_url ?? '',
             'matched_skills'     => $record->matched_skills ?? '',
@@ -98,6 +92,27 @@ class get_application extends external_api {
             'timecreated'        => (int)$record->timecreated,
             'timemodified'       => (int)$record->timemodified,
         ];
+
+        if (is_numeric($record->jd_score)) {
+            $res['jd_score'] = (float)$record->jd_score;
+        }
+        if (is_numeric($record->academia_score)) {
+            $res['academia_score'] = (float)$record->academia_score;
+        }
+        if (is_numeric($record->interview_score)) {
+            $res['interview_score'] = (float)$record->interview_score;
+        }
+        if (is_numeric($record->overall_score)) {
+            $res['overall_score'] = (float)$record->overall_score;
+        }
+        if (is_numeric($record->github_score)) {
+            $res['github_score'] = (float)$record->github_score;
+        }
+        if (is_numeric($record->leetcode_score)) {
+            $res['leetcode_score'] = (float)$record->leetcode_score;
+        }
+
+        return $res;
     }
 
     public static function execute_returns(): external_single_structure {
@@ -115,10 +130,10 @@ class get_application extends external_api {
             'country'            => new external_value(PARAM_TEXT, 'Country'),
             'bio'                => new external_value(PARAM_RAW, 'Bio'),
             'stage'              => new external_value(PARAM_TEXT, 'Pipeline stage'),
-            'jd_score'           => new external_value(PARAM_FLOAT, 'JD score'),
-            'academia_score'     => new external_value(PARAM_FLOAT, 'Academia score'),
-            'interview_score'    => new external_value(PARAM_FLOAT, 'Interview score'),
-            'overall_score'      => new external_value(PARAM_FLOAT, 'Overall score'),
+            'jd_score'           => new external_value(PARAM_FLOAT, 'JD score', VALUE_OPTIONAL),
+            'academia_score'     => new external_value(PARAM_FLOAT, 'Academia score', VALUE_OPTIONAL),
+            'interview_score'    => new external_value(PARAM_FLOAT, 'Interview score', VALUE_OPTIONAL),
+            'overall_score'      => new external_value(PARAM_FLOAT, 'Overall score', VALUE_OPTIONAL),
             'malpractice'        => new external_value(PARAM_INT, 'Malpractice flag'),
             'age'                => new external_value(PARAM_INT, 'Age', VALUE_OPTIONAL),
             'gender'             => new external_value(PARAM_TEXT, 'Gender'),

@@ -28,7 +28,7 @@ export interface Question {
 }
 
 export interface AssessmentBuilderProps {
-  jobId?: number;
+  jobId?: number | string;
   passCount?: number | '';
   questionCount?: number | '';
   durationMins?: number | '';

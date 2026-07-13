@@ -170,22 +170,38 @@ export default function VacancyDetailPage() {
             return;
         }
 
-        for (const candidate of unparsedCandidates) {
-            const data = await fetch(`/api/keka/fetch-resume`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: candidate.id,
-                    email: candidate.email,
-                    jobDescription: job?.description || "No job description"
-                })
-            }).then(res => res.json());
-            if (data.success && data.jdScore !== undefined) {
-                setApplications(prev => prev.map(app => 
-                    app.id === candidate.id 
-                    ? { ...app, jd_score: data.jdScore, overall_score: data.jdScore, stage: 'Parsed' } 
-                    : app
-                ));
+        // Process in chunks of 5 to parallelize but respect limits
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < unparsedCandidates.length; i += CHUNK_SIZE) {
+            const chunk = unparsedCandidates.slice(i, i + CHUNK_SIZE);
+            
+            await Promise.all(chunk.map(async (candidate) => {
+                try {
+                    const data = await fetch(`/api/keka/fetch-resume`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: candidate.id,
+                            email: candidate.email,
+                            jobDescription: job?.description || "No job description"
+                        })
+                    }).then(res => res.json());
+
+                    if (data.success && data.jdScore !== undefined) {
+                        setApplications(prev => prev.map(app => 
+                            app.id === candidate.id 
+                            ? { ...app, jd_score: data.jdScore, overall_score: data.jdScore, stage: 'Parsed' } 
+                            : app
+                        ));
+                    }
+                } catch (err) {
+                    console.error(`Failed to parse candidate ${candidate.id}`, err);
+                }
+            }));
+            
+            // Brief pause between chunks to avoid flooding Keka API
+            if (i + CHUNK_SIZE < unparsedCandidates.length) {
+                await new Promise(res => setTimeout(res, 500));
             }
         }
 
@@ -259,13 +275,13 @@ export default function VacancyDetailPage() {
 
   const hasAnalysis = !!job.jd_analysis;
   
-  // Calculate breakdown stats
-  const getStageCount = (stage: string) => job.stage_counts.find(s => s.stage === stage)?.count || 0;
-  const appliedCount = job.application_count;
-  const academiaQualified = getStageCount('screened') + getStageCount('academia') + getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
-  const interviewQualified = getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
-  const interviewsPending = getStageCount('interview');
-  const selectedCount = getStageCount('selected');
+  // Calculate breakdown stats dynamically from local state
+  const appliedCount = applications.length;
+  const academiaQualified = applications.filter(app => app.stage === 'Screening Cleared' || app.stage === 'Shortlisted' || app.stage === 'Assessment Invited' || app.stage === 'Assessment In Progress' || app.stage === 'Assessment Completed' || app.stage === 'Interview Scheduled' || app.stage === 'Interview Cleared' || app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const interviewQualified = applications.filter(app => app.stage === 'Interview Scheduled' || app.stage === 'Interview Cleared' || app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const interviewsPending = applications.filter(app => app.stage === 'Interview Scheduled').length;
+  const selectedCount = applications.filter(app => app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const isJdAnalyzed = job.jd_analysis || applications.some(app => app.jd_score !== undefined && app.jd_score > 0);
 
   return (
     <div className="space-y-6 flex-1 w-full">
@@ -379,7 +395,7 @@ export default function VacancyDetailPage() {
                 <QuickStat icon={<Users size={16} />} label="Applications" value={job.application_count} />
                 <QuickStat icon={<Calendar size={16} />} label="Deadline" value={formatDate(job.deadline)} />
                 <QuickStat icon={<FileText size={16} />} label="Max Limit" value={job.maxlimit} />
-                <QuickStat icon={<Sparkles size={16} />} label="JD Analyzed" value={hasAnalysis ? 'Yes' : 'No'} />
+                <QuickStat icon={<Sparkles size={16} />} label="JD Analyzed" value={isJdAnalyzed ? 'Yes' : 'No'} />
               </div>
 
               {/* JD Parser Configuration */}
@@ -406,7 +422,7 @@ export default function VacancyDetailPage() {
                 <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2">
-                      No. of applicants to pass JD Parser
+                      {isKekaJob ? 'Score Threshold to pass JD Parser (0-100)' : 'No. of applicants to pass JD Parser'}
                     </label>
                     <input
                       type="number"
@@ -425,7 +441,56 @@ export default function VacancyDetailPage() {
                         const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
                         if (isKekaJob) {
                           if (!passCount) return;
-                          alert(`Configuration saved for Keka job! ${passCount} applicants will pass the JD Parser.`);
+
+                          setApplications(prev => prev.map(app => {
+                            if (app.jd_score === undefined || app.jd_score === null) return app;
+                            return {
+                              ...app,
+                              stage: app.jd_score >= passCount ? 'Shortlisted' : 'Rejected',
+                            };
+                          }));
+
+                          // Build the ingestion set: shortlisted, scored, not yet ingested.
+                          const toIngest = applications
+                            .filter(c =>
+                              typeof c.jd_score === 'number' &&
+                              c.jd_score >= passCount &&
+                              !c.moodleId
+                            )
+                            .map(c => ({
+                              // Only send a real Keka UUID — never send a cuid as a fallback.
+                              kekaUuid: (typeof c.kekaUuid === 'string' && c.kekaUuid.trim() !== '')
+                                ? c.kekaUuid.trim()
+                                : null,
+                              name:     c.name,
+                              email:    c.email,
+                              jdScore:  c.jd_score as number,
+                              jobId:    typeof jobId === 'number' && Number.isInteger(jobId) && jobId > 0
+                                ? jobId
+                                : undefined,
+                            }));
+
+                          if (toIngest.length > 0) {
+                            fetch('/api/keka/ingest-batch', {
+                              method:      'POST',
+                              credentials: 'include',
+                              headers:     { 'Content-Type': 'application/json' },
+                              body:        JSON.stringify({ candidates: toIngest }),
+                            })
+                              .then(res => res.json())
+                              .then(data => {
+                                if (!data.success || !Array.isArray(data.results)) return;
+                                setApplications(prev => prev.map(c => {
+                                  const match = (data.results as Array<{ email: string; status: string; moodleId?: number; candidateId?: string }>)
+                                    .find(r => r.email === c.email && r.moodleId);
+                                  if (!match) return c;
+                                  return { ...c, moodleId: match.moodleId, candidateId: match.candidateId };
+                                }));
+                              })
+                              .catch(e => console.error('[Ingest Batch] Network error:', e));
+                          }
+
+                          alert(`Configuration saved! ${toIngest.length} candidate(s) queued for ingestion.`);
                           return;
                         }
 

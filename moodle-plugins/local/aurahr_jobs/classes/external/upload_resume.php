@@ -12,7 +12,7 @@ class upload_resume extends external_api {
 
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'filename' => new external_value(PARAM_FILE, 'The filename'),
+            'filename' => new external_value(PARAM_TEXT, 'The filename'),
             'base64data' => new external_value(PARAM_RAW, 'Base64 encoded file data')
         ]);
     }
@@ -29,13 +29,18 @@ class upload_resume extends external_api {
 
         $fs = get_file_storage();
         
+        $clean_filename = clean_param($params['filename'], PARAM_FILE);
+        if (empty($clean_filename)) {
+            $clean_filename = 'resume_' . time() . '.pdf';
+        }
+
         $filerecord = array(
             'contextid' => $context->id,
             'component' => 'local_aurahr_jobs',
             'filearea'  => 'resume',
             'itemid'    => 0,
             'filepath'  => '/',
-            'filename'  => $params['filename']
+            'filename'  => $clean_filename
         );
 
         // Delete existing resume if it exists
@@ -49,7 +54,11 @@ class upload_resume extends external_api {
         if (strpos($data, ',') !== false) {
             $data = explode(',', $data)[1];
         }
-        $decoded_pdf = base64_decode($data);
+        
+        $decoded_pdf = base64_decode($data, true);
+        if ($decoded_pdf === false) {
+            throw new \moodle_exception('invalidbase64data', 'local_aurahr_jobs', '', null, 'Failed to decode base64 file data.');
+        }
 
         $fs->create_file_from_string($filerecord, $decoded_pdf);
 

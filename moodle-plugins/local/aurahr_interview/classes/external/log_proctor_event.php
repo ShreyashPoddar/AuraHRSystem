@@ -63,23 +63,14 @@ class log_proctor_event extends external_api {
 
             if ($critical_count >= 5) {
                 if ($params['sessiontype'] === 'interview') {
-                    $interview = $DB->get_record('local_aurahr_interviews', ['id' => $params['sessionid']]);
-                    if ($interview) {
-                        $app = $DB->get_record('local_aurahr_applications', ['id' => $interview->applicationid]);
-                        if ($app) {
-                            $app->malpractice = 1;
-                            $app->stage = 'rejected';
-                            $app->timemodified = time();
-                            $DB->update_record('local_aurahr_applications', $app);
-                        }
-                    }
+                    // Do not automatically disqualify/reject candidate during interview round
                 } elseif ($params['sessiontype'] === 'academia') {
                     $enrol = $DB->get_record('local_aurahr_assess_enrol', ['id' => $params['sessionid']]);
                     if ($enrol) {
                         $app = $DB->get_record('local_aurahr_applications', ['id' => $enrol->applicationid]);
                         if ($app) {
                             $app->malpractice = 1;
-                            $app->stage = 'rejected';
+                            $app->stage = 'Rejected';
                             $app->timemodified = time();
                             $DB->update_record('local_aurahr_applications', $app);
                         }
