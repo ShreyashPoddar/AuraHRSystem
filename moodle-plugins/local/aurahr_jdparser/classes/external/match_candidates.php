@@ -141,19 +141,8 @@ PROMPT;
         $app = $DB->get_record('local_aurahr_applications', ['id' => $appid]);
         if (!$app) return false;
 
-<<<<<<< HEAD
 
-=======
-        // Trigger socials analysis.
-        try {
-            require_once($CFG->dirroot . '/local/aurahr_jobs/classes/external/analyze_socials.php');
-            \local_aurahr_jobs\external\analyze_socials::execute($app->id);
-            // Re-fetch application to get the updated social URLs and scores
-            $app = $DB->get_record('local_aurahr_applications', ['id' => $app->id]);
-        } catch (\Exception $e) {
-            debugging("Failed to analyze socials for application {$app->id}: " . $e->getMessage(), DEBUG_DEVELOPER);
-        }
->>>>>>> main
+
 
         $jd = $DB->get_record('local_aurahr_jd_analysis', ['jobid' => $app->jobid]);
         if (!$jd) return false;
@@ -183,17 +172,10 @@ PROMPT;
 
             $app->jd_score     = (float)($result['score'] ?? 0);
             
-<<<<<<< HEAD
             // Set JD parser summary
             $jd_summary = $result['summary'] ?? '';
             if (!empty($jd_summary)) {
                 $app->ai_summary = $jd_summary;
-=======
-            // Append JD parser summary to existing AI summary
-            $jd_summary = $result['summary'] ?? '';
-            if (!empty($jd_summary)) {
-                $app->ai_summary = "JD PARSER ANALYSIS:\n" . $jd_summary . "\n\nSOCIALS ANALYSIS:\n" . ($app->ai_summary ?? 'Not analyzed yet.');
->>>>>>> main
             }
             
             $app->timemodified = time();
