@@ -53,8 +53,8 @@ class schedule_interview extends external_api {
 
         $record->id = $DB->insert_record('local_aurahr_interviews', $record);
 
-        // Update application stage to 'interview'.
-        $app->stage = 'interview';
+        // Update application stage to 'Screening Scheduled'.
+        $app->stage = 'Screening Scheduled';
         $app->timemodified = $now;
         $DB->update_record('local_aurahr_applications', $app);
 

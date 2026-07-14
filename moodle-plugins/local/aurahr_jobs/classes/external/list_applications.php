@@ -89,7 +89,12 @@ class list_applications extends external_api {
         $total = $DB->count_records_sql($countsql, $sqlparams);
 
         // Fetch records.
+        // NOTE: We use a subquery to pick only ONE assessment per job (the most relevant one,
+        // prioritised as: active > scheduled > completed > draft). Without this, a job with
+        // multiple assessments (e.g. a completed + a draft) would produce N duplicate rows
+        // per application, with get_records_sql only keeping the last occurrence per id.
         $sql = "SELECT a.*, u.firstname, u.lastname, u.email, u.picture, u.imagealt,
+                       u.idnumber AS resume_url,
                        j.title AS job_title, j.department AS job_department,
                        COALESCE(jd.is_finalized, 0) as job_is_finalized,
                        asmt.id as assessment_id,
@@ -101,16 +106,30 @@ class list_applications extends external_api {
                 JOIN {user} u ON u.id = a.userid
                 JOIN {local_aurahr_jobs} j ON j.id = a.jobid
                 LEFT JOIN {local_aurahr_jd_analysis} jd ON jd.jobid = a.jobid
-                LEFT JOIN {local_aurahr_assessments} asmt ON asmt.jobid = a.jobid
+                LEFT JOIN {local_aurahr_assessments} asmt ON asmt.id = (
+                    SELECT sub.id
+                    FROM {local_aurahr_assessments} sub
+                    WHERE sub.jobid = a.jobid
+                    ORDER BY
+                        CASE sub.status
+                            WHEN 'active'     THEN 1
+                            WHEN 'scheduled'  THEN 2
+                            WHEN 'completed'  THEN 3
+                            ELSE 4
+                        END ASC,
+                        sub.id DESC
+                    LIMIT 1
+                )
                 $where
                 ORDER BY $sortfield $sortdir";
 
         $records = $DB->get_records_sql($sql, $sqlparams, $params['limitfrom'], $params['limitnum'] ?: 0);
 
+
         $applications = [];
         $rank = $params['limitfrom'] + 1;
         foreach ($records as $r) {
-            $applications[] = [
+            $item = [
                 'rank'              => $rank++,
                 'id'                => (int)$r->id,
                 'userid'            => (int)$r->userid,
@@ -121,12 +140,6 @@ class list_applications extends external_api {
                 'lastname'          => $r->lastname,
                 'email'             => $r->email,
                 'stage'             => $r->stage,
-                'jd_score'          => (float)($r->jd_score ?? 0),
-                'academia_score'    => (float)($r->academia_score ?? 0),
-                'interview_score'   => (float)($r->interview_score ?? 0),
-                'overall_score'     => (float)($r->overall_score ?? 0),
-                'github_score'      => $r->github_score !== null ? (float)$r->github_score : null,
-                'leetcode_score'    => $r->leetcode_score !== null ? (float)$r->leetcode_score : null,
                 'malpractice'       => (int)$r->malpractice,
                 'recruiter_rating'  => (float)$r->recruiter_rating ?? 0,
                 'timecreated'       => (int)$r->timecreated,
@@ -138,6 +151,23 @@ class list_applications extends external_api {
                 'assessment_end_time'   => (int)($r->assessment_end_time ?? 0),
                 'assessment_status'     => $r->assessment_status ?? '',
             ];
+
+            if (is_numeric($r->jd_score)) {
+                $item['jd_score'] = (float)$r->jd_score;
+            }
+            if (is_numeric($r->academia_score)) {
+                $item['academia_score'] = (float)$r->academia_score;
+            }
+            if (is_numeric($r->interview_score)) {
+                $item['interview_score'] = (float)$r->interview_score;
+            }
+            if (is_numeric($r->overall_score)) {
+                $item['overall_score'] = (float)$r->overall_score;
+            }
+            
+            $item['resumeUrl'] = !empty($r->resume_url) ? $r->resume_url : null;
+
+            $applications[] = $item;
         }
 
         return ['applications' => $applications, 'total' => (int)$total];
@@ -157,12 +187,10 @@ class list_applications extends external_api {
                     'lastname'          => new external_value(PARAM_TEXT, 'Last name'),
                     'email'             => new external_value(PARAM_TEXT, 'Email'),
                     'stage'             => new external_value(PARAM_TEXT, 'Pipeline stage'),
-                    'jd_score'          => new external_value(PARAM_FLOAT, 'JD Parser score'),
-                    'academia_score'    => new external_value(PARAM_FLOAT, 'Academia round score'),
-                    'interview_score'   => new external_value(PARAM_FLOAT, 'Interview score'),
-                    'overall_score'     => new external_value(PARAM_FLOAT, 'Overall score'),
-                    'github_score'      => new external_value(PARAM_FLOAT, 'GitHub score', VALUE_OPTIONAL),
-                    'leetcode_score'    => new external_value(PARAM_FLOAT, 'LeetCode score', VALUE_OPTIONAL),
+                    'jd_score'          => new external_value(PARAM_FLOAT, 'JD Parser score', VALUE_OPTIONAL),
+                    'academia_score'    => new external_value(PARAM_FLOAT, 'Academia round score', VALUE_OPTIONAL),
+                    'interview_score'   => new external_value(PARAM_FLOAT, 'Interview score', VALUE_OPTIONAL),
+                    'overall_score'     => new external_value(PARAM_FLOAT, 'Overall score', VALUE_OPTIONAL),
                     'malpractice'       => new external_value(PARAM_INT, 'Malpractice flag'),
                     'recruiter_rating'  => new external_value(PARAM_FLOAT, 'Recruiter rating'),
                     'timecreated'       => new external_value(PARAM_INT, 'Applied date'),
@@ -173,6 +201,7 @@ class list_applications extends external_api {
                     'assessment_start_time' => new external_value(PARAM_INT, 'Assessment start time', VALUE_OPTIONAL),
                     'assessment_end_time'   => new external_value(PARAM_INT, 'Assessment end time', VALUE_OPTIONAL),
                     'assessment_status'     => new external_value(PARAM_TEXT, 'Assessment status', VALUE_OPTIONAL),
+                    'resumeUrl'             => new external_value(PARAM_TEXT, 'Resume URL (stored in user idnumber field)', VALUE_OPTIONAL, null),
                 ])
             ),
             'total' => new external_value(PARAM_INT, 'Total matching records'),

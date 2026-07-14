@@ -25,10 +25,6 @@ class util {
                 'score' => !empty($app->jd_score) ? (float)$app->jd_score : null,
                 'weight' => 0.15
             ],
-            'socials' => [
-                'score' => null,
-                'weight' => 0.15
-            ],
             'academia' => [
                 'score' => !empty($app->academia_score) ? (float)$app->academia_score : null,
                 'weight' => 0.30
@@ -39,19 +35,6 @@ class util {
             ]
         ];
 
-        // Calculate socials score (average of available social scores).
-        // NOTE: Use !== null (not !empty) so that a real score of 0 is still counted.
-        $social_scores = [];
-        if ($app->github_score !== null && $app->github_score !== '') {
-            $social_scores[] = (float)$app->github_score;
-        }
-        if ($app->leetcode_score !== null && $app->leetcode_score !== '') {
-            $social_scores[] = (float)$app->leetcode_score;
-        }
-        
-        if (count($social_scores) > 0) {
-            $components['socials']['score'] = array_sum($social_scores) / count($social_scores);
-        }
 
         $total_weight_available = 0.0;
         $weighted_sum = 0.0;

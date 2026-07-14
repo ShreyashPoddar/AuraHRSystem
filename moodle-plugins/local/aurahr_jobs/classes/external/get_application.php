@@ -63,7 +63,7 @@ class get_application extends external_api {
             $prefs = $user_prefs_json ? (json_decode($user_prefs_json, true) ?: []) : [];
         }
 
-        return [
+        $res = [
             'id'                 => (int)$record->id,
             'userid'             => (int)$record->userid,
             'jobid'              => (int)$record->jobid,
@@ -77,20 +77,12 @@ class get_application extends external_api {
             'country'            => $record->country ?? '',
             'bio'                => $record->user_bio ?? '',
             'stage'              => $record->stage,
-            'jd_score'           => (float)($record->jd_score ?? 0),
-            'academia_score'     => (float)($record->academia_score ?? 0),
-            'interview_score'    => (float)($record->interview_score ?? 0),
-            'overall_score'      => (float)($record->overall_score ?? 0),
             'malpractice'        => (int)$record->malpractice,
             'age'                => $record->age !== null ? (int)$record->age : null,
             'gender'             => $record->gender ?? '',
             'role'               => $record->role ?? '',
             'education_details'  => $record->education_details ?? '',
             'resume_skills'      => $record->resume_skills ?? '',
-            'github_score'       => $record->github_score !== null ? (float)$record->github_score : null,
-            'leetcode_score'     => $record->leetcode_score !== null ? (float)$record->leetcode_score : null,
-            'github_url'         => $record->github_url ?? '',
-            'leetcode_url'       => $record->leetcode_url ?? '',
             'matched_skills'     => $record->matched_skills ?? '',
             'recruiter_rating'   => (float)($record->recruiter_rating ?? 0),
             'recruiter_feedback' => $record->recruiter_feedback ?? '',
@@ -98,6 +90,22 @@ class get_application extends external_api {
             'timecreated'        => (int)$record->timecreated,
             'timemodified'       => (int)$record->timemodified,
         ];
+
+        if (is_numeric($record->jd_score)) {
+            $res['jd_score'] = (float)$record->jd_score;
+        }
+        if (is_numeric($record->academia_score)) {
+            $res['academia_score'] = (float)$record->academia_score;
+        }
+        if (is_numeric($record->interview_score)) {
+            $res['interview_score'] = (float)$record->interview_score;
+        }
+        if (is_numeric($record->overall_score)) {
+            $res['overall_score'] = (float)$record->overall_score;
+        }
+        }
+
+        return $res;
     }
 
     public static function execute_returns(): external_single_structure {
@@ -115,20 +123,16 @@ class get_application extends external_api {
             'country'            => new external_value(PARAM_TEXT, 'Country'),
             'bio'                => new external_value(PARAM_RAW, 'Bio'),
             'stage'              => new external_value(PARAM_TEXT, 'Pipeline stage'),
-            'jd_score'           => new external_value(PARAM_FLOAT, 'JD score'),
-            'academia_score'     => new external_value(PARAM_FLOAT, 'Academia score'),
-            'interview_score'    => new external_value(PARAM_FLOAT, 'Interview score'),
-            'overall_score'      => new external_value(PARAM_FLOAT, 'Overall score'),
+            'jd_score'           => new external_value(PARAM_FLOAT, 'JD score', VALUE_OPTIONAL),
+            'academia_score'     => new external_value(PARAM_FLOAT, 'Academia score', VALUE_OPTIONAL),
+            'interview_score'    => new external_value(PARAM_FLOAT, 'Interview score', VALUE_OPTIONAL),
+            'overall_score'      => new external_value(PARAM_FLOAT, 'Overall score', VALUE_OPTIONAL),
             'malpractice'        => new external_value(PARAM_INT, 'Malpractice flag'),
             'age'                => new external_value(PARAM_INT, 'Age', VALUE_OPTIONAL),
             'gender'             => new external_value(PARAM_TEXT, 'Gender'),
             'role'               => new external_value(PARAM_TEXT, 'Role'),
             'education_details'  => new external_value(PARAM_RAW, 'Education details'),
             'resume_skills'      => new external_value(PARAM_RAW, 'Resume skills'),
-            'github_score'       => new external_value(PARAM_FLOAT, 'Github score', VALUE_OPTIONAL),
-            'leetcode_score'     => new external_value(PARAM_FLOAT, 'Leetcode score', VALUE_OPTIONAL),
-            'github_url'         => new external_value(PARAM_TEXT, 'Github URL', VALUE_OPTIONAL),
-            'leetcode_url'       => new external_value(PARAM_TEXT, 'Leetcode URL', VALUE_OPTIONAL),
             'matched_skills'     => new external_value(PARAM_RAW, 'Matched skills'),
             'recruiter_rating'   => new external_value(PARAM_FLOAT, 'Recruiter rating'),
             'recruiter_feedback' => new external_value(PARAM_RAW, 'Recruiter feedback'),

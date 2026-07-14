@@ -12,7 +12,7 @@ class upload_resume extends external_api {
 
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'filename' => new external_value(PARAM_FILE, 'The filename'),
+            'filename' => new external_value(PARAM_TEXT, 'The filename'),
             'base64data' => new external_value(PARAM_RAW, 'Base64 encoded file data')
         ]);
     }
@@ -29,13 +29,18 @@ class upload_resume extends external_api {
 
         $fs = get_file_storage();
         
+        $clean_filename = clean_param($params['filename'], PARAM_FILE);
+        if (empty($clean_filename)) {
+            $clean_filename = 'resume_' . time() . '.pdf';
+        }
+
         $filerecord = array(
             'contextid' => $context->id,
             'component' => 'local_aurahr_jobs',
             'filearea'  => 'resume',
             'itemid'    => 0,
             'filepath'  => '/',
-            'filename'  => $params['filename']
+            'filename'  => $clean_filename
         );
 
         // Delete existing resume if it exists
@@ -49,7 +54,11 @@ class upload_resume extends external_api {
         if (strpos($data, ',') !== false) {
             $data = explode(',', $data)[1];
         }
-        $decoded_pdf = base64_decode($data);
+        
+        $decoded_pdf = base64_decode($data, true);
+        if ($decoded_pdf === false) {
+            throw new \moodle_exception('invalidbase64data', 'local_aurahr_jobs', '', null, 'Failed to decode base64 file data.');
+        }
 
         $fs->create_file_from_string($filerecord, $decoded_pdf);
 
@@ -99,37 +108,11 @@ class upload_resume extends external_api {
             foreach ($applications as $app) {
                 $app->resume_skills = $parsed_text;
                 
-                // Extract candidate social URLs from resume text if empty.
-                $updated_urls = false;
-                if (empty($app->github_url)) {
-                    if (preg_match('/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i', $parsed_text, $matches)) {
-                        $app->github_url = 'https://github.com/' . $matches[1];
-                        $updated_urls = true;
-                    }
-                }
-                if (empty($app->leetcode_url)) {
-                    if (preg_match('/(?:https?:\/\/)?(?:www\.)?leetcode\.com\/(?:u\/)?([a-zA-Z0-9_-]+)/i', $parsed_text, $matches)) {
-                        $app->leetcode_url = 'https://leetcode.com/' . $matches[1];
-                        $updated_urls = true;
-                    }
-                }
-                if (empty($app->linkedin_url)) {
-                    if (preg_match('/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i', $parsed_text, $matches)) {
-                        $app->linkedin_url = 'https://www.linkedin.com/in/' . $matches[1];
-                        $updated_urls = true;
-                    }
-                }
+        
 
                 $DB->update_record('local_aurahr_applications', $app);
                 
-                // Trigger AI Socials Analysis if we extracted new URLs.
-                if ($updated_urls) {
-                    try {
-                        require_once(__DIR__ . '/analyze_socials.php');
-                        \local_aurahr_jobs\external\analyze_socials::execute($app->id);
-                    } catch (\Exception $e) {
-                        debugging('Failed to automatically analyze socials after resume upload for application ' . $app->id . ': ' . $e->getMessage(), DEBUG_DEVELOPER);
-                    }
+                
                 }
                 
                 // Retrigger JD parser to update the score!

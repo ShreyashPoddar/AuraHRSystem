@@ -1,9 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
 }
 
 model Employee {
@@ -11,7 +12,7 @@ model Employee {
   name       String
   email      String     @unique
   role       String
-  skills     String[]
+  skills     Json
   department String
   location   String
   createdAt  DateTime   @default(now())
@@ -22,10 +23,10 @@ model JobDescription {
   id          String   @id @default(cuid())
   role        String
   description String
-  mustHave    String[]
-  goodToHave  String[]
-  futureProof String[]
-  teamGap     String[]
+  mustHave    Json
+  goodToHave  Json
+  futureProof Json
+  teamGap     Json
   createdAt   DateTime @default(now())
   candidates  Candidate[]
 }
@@ -34,7 +35,7 @@ model Candidate {
   id             String   @id @default(cuid())
   name           String
   email          String   @unique
-  skills         String[]
+  skills         Json
   experience     Int?
   education      String?
   location       String?
@@ -42,23 +43,26 @@ model Candidate {
   matchScore     Int?
   authenticity   Int?
   status         String   @default("APPLIED")
-  
-  // External Footprints
-  githubUrl      String?
-  linkedInUrl    String?
-  kaggleUrl      String?
-  
+
+
+  // Keka ATS ingestion — stores the originating Keka candidate UUID so we can
+  // detect duplicates and correlate back to the source system.
+  kekaUuid       String?  @unique
+
   // Future Match Scoring
   futureProofScore Float?  @default(0)
-  
+
   // Relations
-  jdId           String?
-  jobDescription JobDescription? @relation(fields: [jdId], references: [id])
-  interviews     Interview[]
-  proctoringLogs ProctoringLog[]
-  
+  jdId             String?
+  jobDescription   JobDescription?  @relation(fields: [jdId], references: [id])
+  interviews       Interview[]
+  proctoringLogs   ProctoringLog[]
+  activationTokens ActivationToken[]
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([status])
 }
 
 model Interview {
@@ -91,3 +95,18 @@ model MarketTrend {
   growth    Float    // Percentage
   updatedAt DateTime @updatedAt
 }
+
+// Stores single-use magic-link tokens that let ingested Keka candidates set
+// their own password without ever knowing the temporary one provisioned during
+// account creation. Token value is a crypto.randomUUID() string, NOT a cuid,
+// for higher entropy. Cascades on candidate deletion.
+model ActivationToken {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+

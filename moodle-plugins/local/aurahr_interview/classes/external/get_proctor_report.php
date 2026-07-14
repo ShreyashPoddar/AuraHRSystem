@@ -20,7 +20,7 @@ class get_proctor_report extends external_api {
     }
 
     public static function execute(string $sessiontype, int $sessionid): array {
-        global $DB;
+        global $DB, $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'sessiontype' => $sessiontype, 'sessionid' => $sessionid,

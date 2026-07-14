@@ -23,6 +23,7 @@ export default function OpenPostsPage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<number | null>(null);
   const [applied, setApplied] = useState<Set<number>>(new Set());
+  const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -78,7 +79,7 @@ export default function OpenPostsPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 flex-1 w-full max-w-full">
       <div>
         <h1 className="font-serif text-3xl font-bold text-ink tracking-tight">Open Positions</h1>
         <p className="text-ink/50 mt-1 text-sm">Browse and apply to available job openings.</p>
@@ -131,9 +132,27 @@ export default function OpenPostsPage() {
                       <Clock size={12} /> {formatDate(job.deadline)}
                     </span>
                   </div>
-                  <p className="text-sm text-ink/50 mt-3 line-clamp-2 leading-relaxed">
-                    {job.description.replace(/<[^>]*>/g, '').substring(0, 200)}...
-                  </p>
+                  <div className="mt-3">
+                    {expandedJobId === job.id ? (
+                      <div 
+                        className="prose prose-sm max-w-none text-ink/80 mb-2"
+                        dangerouslySetInnerHTML={{ __html: job.description }} 
+                      />
+                    ) : (
+                      <p className="text-sm text-ink/50 leading-relaxed line-clamp-2">
+                        {job.description.replace(/<[^>]*>/g, '')}
+                      </p>
+                    )}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedJobId(expandedJobId === job.id ? null : job.id);
+                      }}
+                      className="text-blue-500 text-xs font-semibold mt-1 hover:underline focus:outline-none"
+                    >
+                      {expandedJobId === job.id ? 'Show Less' : 'Read More'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="shrink-0">

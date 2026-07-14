@@ -30,10 +30,10 @@ class finalize_jd extends external_api {
 
         $job = $DB->get_record('local_aurahr_jobs', ['id' => $params['jobid']], '*', MUST_EXIST);
 
-        // Fetch all applications for this job in 'applied' or 'screened' stage, ordered by jd_score DESC.
+        // Fetch all applications for this job in 'applied', 'Imported', 'Under AI Screening', 'Shortlisted' or 'screened' stage, ordered by jd_score DESC.
         $sql = "SELECT id, stage, jd_score 
                 FROM {local_aurahr_applications} 
-                WHERE jobid = :jobid AND (stage = 'applied' OR stage = 'screened')
+                WHERE jobid = :jobid AND (stage IN ('Imported', 'Under AI Screening', 'Shortlisted', 'applied', 'screened'))
                 ORDER BY jd_score DESC";
         $applications = $DB->get_records_sql($sql, ['jobid' => $job->id]);
 
@@ -45,17 +45,17 @@ class finalize_jd extends external_api {
         foreach ($applications as $app) {
             $app_update = clone $app;
             if ($index < $params['pass_count']) {
-                // Shortlist them (set stage to 'screened' so Academia schedule_test picks them up)
-                if ($app->stage !== 'screened') {
-                    $app_update->stage = 'screened';
+                // Shortlist them (set stage to 'Shortlisted' so Academia schedule_test picks them up)
+                if ($app->stage !== 'Shortlisted') {
+                    $app_update->stage = 'Shortlisted';
                     $app_update->timemodified = $now;
                     $DB->update_record('local_aurahr_applications', $app_update);
                 }
                 $passed_count++;
             } else {
                 // Reject the rest
-                if ($app->stage !== 'rejected') {
-                    $app_update->stage = 'rejected';
+                if ($app->stage !== 'Rejected') {
+                    $app_update->stage = 'Rejected';
                     $app_update->timemodified = $now;
                     $DB->update_record('local_aurahr_applications', $app_update);
                 }

@@ -1,0 +1,48 @@
+The USER performed the following action:
+Show the contents of file c:\Users\shrey\Desktop\AuraHR\AuraHR\src\app\candidate\test\[id]\page.tsx from lines 780 to 819
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 923
+Total Bytes: 40925
+Showing lines 780 to 819
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+780: 
+781:   // Initialize timer when assessment data is loaded
+782:   useEffect(() => {
+783:     if (assessment?.time_limit_seconds) {
+784:       setTimeLeft(assessment.time_limit_seconds);
+785:     } else {
+786:       // default 30 minutes if not specified
+787:       setTimeLeft(30 * 60);
+788:     }
+789:   }, [assessment]);
+790: 
+791:   // Countdown effect
+792:   useEffect(() => {
+793:     if (timeLeft <= 0) return;
+794:     const id = setInterval(() => {
+795:       setTimeLeft(prev => {
+796:         if (prev <= 1) {
+797:           clearInterval(id);
+798:           // Auto‑submit when time expires
+799:           handleSubmit();
+800:           return 0;
+801:         }
+802:         return prev - 1;
+803:       });
+804:     }, 1000);
+805:     return () => clearInterval(id);
+806:   }, [timeLeft]);
+807: 
+808:   // Show timer in the test UI (right after the top‑level wrapper)
+809:   const timerUI = (
+810:     <div className="text-xl font-bold text-ink mb-4 text-center">
+811:       Time left: {formatTime(timeLeft)}
+812:     </div>
+813:   );
+814: 
+815:         {/* Question nav */}
+816:         <div className="w-64 shrink-0">
+817:           <div className="bento-card p-5 sticky top-6 space-y-4">
+818:             {violationCount > 0 && (
+819:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+

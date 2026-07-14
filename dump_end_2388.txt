@@ -1,0 +1,95 @@
+Created At: 2026-06-03T09:55:21Z
+Completed At: 2026-06-03T09:55:21Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 970
+Total Bytes: 42815
+Showing lines 800 to 970
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+800:       )}
+801:     </div>
+802:   );
+803: 
+804:   // Timer state for the assessment
+805:   const [timeLeft, setTimeLeft] = useState<number>(0);
+806: 
+807:   // Helper to format seconds -> mm:ss
+808:   const formatTime = (seconds: number) => {
+809:     const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+810:     const s = String(seconds % 60).padStart(2, '0');
+811:     return `${m}:${s}`;
+812:   };
+813: 
+814:   // Initialize timer when assessment data is loaded
+815:   useEffect(() => {
+816:     if (assessment?.time_limit_seconds) {
+817:       setTimeLeft(assessment.time_limit_seconds);
+818:     } else {
+819:       // default 30 minutes if not specified
+820:       setTimeLeft(30 * 60);
+821:     }
+822:   }, [assessment]);
+823: 
+824:   // Countdown effect
+825:   useEffect(() => {
+826:     if (timeLeft <= 0) return;
+827:     const id = setInterval(() => {
+828:       setTimeLeft(prev => {
+829:         if (prev <= 1) {
+830:           clearInterval(id);
+831:           // Auto‑submit when time expires
+832:           handleSubmit();
+833:           return 0;
+834:         }
+835:         return prev - 1;
+836:       });
+837:     }, 1000);
+838:     return () => clearInterval(id);
+839:   }, [timeLeft]);
+840: 
+841:   // ── Active test ────────────────────────────────────────────────────────
+842:   return (
+843:     <div className="fixed inset-0 bg-cream z-50 overflow-y-auto p-8 pt-12">
+844:       <div className="max-w-4xl mx-auto flex gap-8"
+<truncated 4471 bytes>
+rget.value }))}
+931:                   placeholder="Type your answer here…"
+932:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+933:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+934:                 />
+935:               )}
+936:             </div>
+937: 
+938:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+939:               <button
+940:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+941:                 disabled={currentQ === 0}
+942:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+943:               >
+944:                 Previous
+945:               </button>
+946: 
+947:               {isLast ? (
+948:                 <button onClick={handleSubmit} disabled={submitting}
+949:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+950:                 >
+951:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+952:                   Submit Assessment
+953:                 </button>
+954:               ) : (
+955:                 <button
+956:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+957:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+958:                 >
+959:                   Next
+960:                 </button>
+961:               )}
+962:             </div>
+963:           </div>
+964:         </div>
+965:       </div>
+966:     </div>
+967:   );
+968: }
+969: 
+970: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

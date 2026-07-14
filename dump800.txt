@@ -1,0 +1,68 @@
+Created At: 2026-06-03T16:11:32Z
+Completed At: 2026-06-03T16:11:32Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1010
+Total Bytes: 45712
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: 'use client';
+2: 
+3: import React, { useState, useEffect, useRef, useCallback } from "react";
+4: import AssessmentHeader from "../../../../components/AssessmentHeader";
+5: import { motion } from 'framer-motion';
+6: import ViolationToast from "../../../../components/ViolationToast";
+7: import {
+8:   CheckCircle, AlertTriangle, Loader2,
+9:   VideoOff, Mic, MicOff, Monitor, MonitorOff,
+10:   ShieldAlert, ShieldCheck, Camera, Clock
+11: } from 'lucide-react';
+12: 
+13: import { useParams } from 'next/navigation';
+14: import { moodleCall } from '@/lib/moodle';
+15: import * as tf from '@tensorflow/tfjs';
+16: import * as cocoSsd from '@tensorflow-models/coco-ssd';
+17: 
+18: // ────────────────────────────────────────────────────────────────────────────
+19: // Types
+20: // ────────────────────────────────────────────────────────────────────────────
+21: type CheckStatus = 'idle' | 'checking' | 'ok' | 'fail';
+22: 
+23: interface CheckState {
+24:   status: CheckStatus;
+25:   error?: string;
+26: }
+27: 
+28: // ────────────────────────────────────────────────────────────────────────────
+29: // Helpers
+30: // ────
+<truncated 36377 bytes>
+y
+773:                 muted
+774:                 playsInline
+775:                 ref={(node) => { if (node && camStream) node.srcObject = camStream; }}
+776:                 className="w-full h-full object-cover scale-x-[-1]"
+777:               />
+778:               <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
+779:                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE
+780:               </div>
+781:             </div>
+782: 
+783:             {/* Auto brightness status */}
+784:             {(() => {
+785:               const bright    = camBrightness !== null && camBrightness > 0;
+786:               const checking  = camBrightness === null;
+787:               const covered   = camBrightness !== null && camBrightness === -1;
+788:               return (
+789:                 <div className={`mb-5 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-semibold
+790:                   ${checking ? 'bg-amber-50 border border-amber-200 text-amber-700' :
+791:                     bright   ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
+792:                                'bg-red-50 border border-red-200 text-red-700'}`}
+793:                 >
+794:                   {checking && <Loader2 size={16} className="animate-spin shrink-0" />}
+795:                   {!checking && bright  && <span className="text-lg">✅</span>}
+796:                   {!checking && !bright && <span className="text-lg">🚫</span>}
+797:                   <span>
+798:                     {checking ? 'Analysing camera feed for face…' :
+799:                      bright   ? 'Face detected! Camera is working correctly.' :
+800:                                 'No face detected. Please ensure your face is clearly visible and well-lit.'}
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

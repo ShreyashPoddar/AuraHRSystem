@@ -1,0 +1,76 @@
+Created At: 2026-06-03T10:32:41Z
+Completed At: 2026-06-03T10:32:41Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1009
+Total Bytes: 45710
+Showing lines 896 to 1009
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+896:         <div className="max-w-4xl mx-auto flex gap-8">
+897:         {/* Question nav + Timer */}
+898:         <div className="w-64 shrink-0">
+899:           <div className={`bento-card p-5 sticky top-6 space-y-4 ${timeLeft <= 60 ? 'bg-red-100 text-red-600 animate-pulse' : timeLeft <= 300 ? 'bg-amber-50 text-amber-600' : 'bg-ink/5 text-ink'}`}>
+900:               <Clock size={18} className="shrink-0" />
+901:               {formatTime(timeLeft)}
+902:             </div>
+903: 
+904:             {violationCount > 0 && (
+905:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+906:                 ${flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+907:                 <ShieldAlert size={14} />
+908:                 {violationCount} Violation{violationCount !== 1 ? 's' : ''}
+909:                 {flagged ? ' — FLAGGED' : ''}
+910:               </div>
+911:             )}
+912:             <div className="grid grid-cols-4 gap-2">
+913:               {questions.map((_, idx) => (
+914:                 <button key={idx} onClick={() => setCurrentQ(idx)}
+915:                   className={`w-10 h-10 rounded-xl font-mono text-sm font-bold flex items-center justify-center transition-colors
+916:                     ${currentQ === idx
+917:                       ? 'bg-blue-500 text-white ring-2 ring-blue-500 ring-offset-2'
+918:                       : answers[idx]
+919:                         ? 'bg-emerald-100 text-emerald-700'
+920:                         : 'bg-ink/5 text-ink/40 hover:bg-ink/10'}`}
+921:
+<truncated 2483 bytes>
+ }))}
+970:                   placeholder="Type your answer here…"
+971:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+972:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+973:                 />
+974:               )}
+975:             </div>
+976: 
+977:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+978:               <button
+979:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+980:                 disabled={currentQ === 0}
+981:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+982:               >
+983:                 Previous
+984:               </button>
+985: 
+986:               {isLast ? (
+987:                 <button onClick={handleSubmit} disabled={submitting}
+988:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+989:                 >
+990:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+991:                   Submit Assessment
+992:                 </button>
+993:               ) : (
+994:                 <button
+995:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+996:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+997:                 >
+998:                   Next
+999:                 </button>
+1000:               )}
+1001:             </div>
+1002:           </div>
+1003:         </div>
+1004:       </div>
+1005:     </div>
+1006:   );
+1007: }
+1008: 
+1009: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

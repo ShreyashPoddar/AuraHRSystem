@@ -100,60 +100,12 @@ class apply extends external_api {
             }
         }
 
-        // Fetch candidate's social profile URLs from user preferences.
-        $chunks_count = $DB->get_field('user_preferences', 'value', [
-            'userid' => $USER->id,
-            'name'   => 'aurahr_candidate_settings_chunks'
-        ]);
-
-        $prefs = [];
-        if ($chunks_count) {
-            $full_json = '';
-            for ($i = 0; $i < (int)$chunks_count; $i++) {
-                $full_json .= $DB->get_field('user_preferences', 'value', [
-                    'userid' => $USER->id,
-                    'name'   => 'aurahr_candidate_settings_' . $i
-                ]);
-            }
-            $prefs = json_decode($full_json, true) ?: [];
-        } else {
-            $user_prefs_json = $DB->get_field('user_preferences', 'value', [
-                'userid' => $USER->id,
-                'name'   => 'aurahr_candidate_settings'
-            ]);
-            $prefs = $user_prefs_json ? (json_decode($user_prefs_json, true) ?: []) : [];
-        }
-        $github_url   = $prefs['github'] ?? '';
-        $linkedin_url = $prefs['linkedin'] ?? '';
-        $leetcode_url = $prefs['leetcode'] ?? '';
-
-        // Extract candidate social URLs from resume text if empty.
-        if (!empty($resume_skills)) {
-            if (empty($github_url)) {
-                if (preg_match('/(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i', $resume_skills, $matches)) {
-                    $github_url = 'https://github.com/' . $matches[1];
-                }
-            }
-            if (empty($leetcode_url)) {
-                if (preg_match('/(?:https?:\/\/)?(?:www\.)?leetcode\.com\/(?:u\/)?([a-zA-Z0-9_-]+)/i', $resume_skills, $matches)) {
-                    $leetcode_url = 'https://leetcode.com/' . $matches[1];
-                }
-            }
-            if (empty($linkedin_url)) {
-                if (preg_match('/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)/i', $resume_skills, $matches)) {
-                    $linkedin_url = 'https://www.linkedin.com/in/' . $matches[1];
-                }
-            }
-        }
 
         $application = (object)[
             'userid'       => $USER->id,
             'jobid'        => $params['jobid'],
             'stage'        => 'applied',
             'resume_skills'=> $resume_skills,
-            'github_url'   => $github_url,
-            'linkedin_url' => $linkedin_url,
-            'leetcode_url' => $leetcode_url,
             'malpractice'  => 0,
             'jd_score'     => 0.00,
             'timecreated'  => $now,
@@ -162,13 +114,6 @@ class apply extends external_api {
 
         $application->id = $DB->insert_record('local_aurahr_applications', $application);
 
-        // Automatically trigger AI Socials Analysis synchronously.
-        try {
-            require_once(__DIR__ . '/analyze_socials.php');
-            \local_aurahr_jobs\external\analyze_socials::execute($application->id);
-        } catch (\Exception $e) {
-            debugging('Failed to automatically analyze socials for application ' . $application->id . ': ' . $e->getMessage(), DEBUG_DEVELOPER);
-        }
 
         // Automatically trigger JD Scoring synchronously.
         try {

@@ -48,8 +48,8 @@
                COMMENT="FK to mdl_user.id — the candidate"/>
         <FIELD NAME="jobid"             TYPE="int"    LENGTH="10" NOTNULL="true"
                COMMENT="FK to local_aurahr_jobs.id"/>
-        <FIELD NAME="stage"             TYPE="char"   LENGTH="30" NOTNULL="true" DEFAULT="applied"
-               COMMENT="applied | screened | academia | interview | offer | selected | rejected"/>
+        <FIELD NAME="stage"             TYPE="char"   LENGTH="50" NOTNULL="true" DEFAULT="Imported"
+               COMMENT="Imported | Under AI Screening | Shortlisted | Screening Scheduled | Screening Cleared | Assessment Invited | Assessment In Progress | Assessment Completed | Assessment Cleared | Rejected | On Hold | Hired / Offer stage"/>
         <FIELD NAME="jd_score"          TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false"/>
         <FIELD NAME="academia_score"    TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false"/>
         <FIELD NAME="interview_score"   TYPE="number" LENGTH="10" DECIMALS="2" NOTNULL="false"/>

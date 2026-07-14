@@ -11,19 +11,10 @@ import {
 import { moodleCall } from '@/lib/moodle';
 import RadarChart from '@/components/RadarChart';
 
-const STAGES = ['applied', 'screened', 'academia', 'interview', 'offer', 'selected', 'rejected'];
-const stageColors: Record<string, string> = {
-  applied: 'bg-blue-500/15 text-blue-700 border-blue-200',
-  screened: 'bg-amber-500/15 text-amber-700 border-amber-200',
-  academia: 'bg-purple-500/15 text-purple-700 border-purple-200',
-  interview: 'bg-gold/15 text-gold border-gold/30',
-  offer: 'bg-sage/15 text-sage border-sage/30',
-  selected: 'bg-emerald-500/15 text-emerald-700 border-emerald-200',
-  rejected: 'bg-rust/15 text-rust border-rust/30',
-};
+
 
 interface InterviewPanelTabProps {
-  jobId: number;
+  jobId: number | string;
 }
 
 interface Question {
@@ -86,7 +77,11 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
     }
   };
 
-  async function openDetail(appId: number) {
+  async function openDetail(appId: number | string) {
+    if (typeof appId === 'string' && String(appId).includes('-')) {
+      alert("Detailed views are not currently supported for unparsed Keka candidates.");
+      return;
+    }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<any>('local_aurahr_interview_get_details', { applicationid: appId });
@@ -108,6 +103,14 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
 
   useEffect(() => {
     async function fetchCandidates() {
+      if (!jobId) return;
+
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        setLoadingData(false);
+        return;
+      }
+
       setLoadingData(true);
       try {
         const [appsRes, interviewsRes] = await Promise.all([
@@ -142,7 +145,7 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
           interviewScore: app.interview_score,
           overallScore: app.overall_score,
           malpractice: (app.malpractice || 0) > 0,
-          status: app.stage === 'selected' ? 'selected' : (app.stage === 'rejected' ? 'rejected' : 'pending')
+          status: app.stage === 'Hired / Offer stage' ? 'Hired / Offer stage' : (app.stage === 'Rejected' ? 'Rejected' : 'pending')
         }));
         setEvalCandidates(evals);
       } catch (err) {
@@ -351,10 +354,10 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button 
-                          onClick={() => updateCandidateStatus(c.id, 'selected')}
-                          disabled={c.status === 'selected'}
+                          onClick={() => updateCandidateStatus(c.id, 'Hired / Offer stage')}
+                          disabled={c.status === 'Hired / Offer stage'}
                           className={`p-1.5 rounded-lg transition-colors border ${
-                            c.status === 'selected' 
+                            c.status === 'Hired / Offer stage' 
                               ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
                               : 'bg-white text-ink/40 border-ink/10 hover:border-emerald-500 hover:text-emerald-600'
                           }`}
@@ -363,10 +366,10 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
                           <CheckCircle size={16} />
                         </button>
                         <button 
-                          onClick={() => updateCandidateStatus(c.id, 'rejected')}
-                          disabled={c.status === 'rejected'}
+                          onClick={() => updateCandidateStatus(c.id, 'Rejected')}
+                          disabled={c.status === 'Rejected'}
                           className={`p-1.5 rounded-lg transition-colors border ${
-                            c.status === 'rejected' 
+                            c.status === 'Rejected' 
                               ? 'bg-rust/10 text-rust border-rust/20' 
                               : 'bg-white text-ink/40 border-ink/10 hover:border-rust hover:text-rust'
                           }`}
@@ -377,8 +380,8 @@ export default function InterviewPanelTab({ jobId }: InterviewPanelTabProps) {
                         
                         {/* Status indicator */}
                         {c.status === 'pending' && <span className="text-[10px] uppercase font-bold text-ink/30 ml-2">Pending</span>}
-                        {c.status === 'selected' && <span className="text-[10px] uppercase font-bold text-emerald-600 ml-2">Selected</span>}
-                        {c.status === 'rejected' && <span className="text-[10px] uppercase font-bold text-rust ml-2">Rejected</span>}
+                        {c.status === 'Hired / Offer stage' && <span className="text-[10px] uppercase font-bold text-emerald-600 ml-2">Selected</span>}
+                        {c.status === 'Rejected' && <span className="text-[10px] uppercase font-bold text-rust ml-2">Rejected</span>}
                       </div>
                     </td>
                   </tr>

@@ -1,5 +1,6 @@
 const fs = require('fs');
-const pdf = require('pdf-parse');
+const path = require('path');
+const { PDFParse } = require('pdf-parse');
 
 const filePath = process.argv[2];
 
@@ -9,8 +10,18 @@ if (!filePath || !fs.existsSync(filePath)) {
 }
 
 let dataBuffer = fs.readFileSync(filePath);
+let uint8 = new Uint8Array(dataBuffer);
 
-pdf(dataBuffer).then(function(data) {
+const fontPath = path.join(__dirname, 'node_modules/pdfjs-dist/standard_fonts/').replace(/\\/g, '/');
+const cMapPath = path.join(__dirname, 'node_modules/pdfjs-dist/cmaps/').replace(/\\/g, '/');
+
+const parser = new PDFParse({
+    data: uint8,
+    standardFontDataUrl: fontPath,
+    cMapUrl: cMapPath,
+    cMapPacked: true
+});
+parser.getText().then(function(data) {
     // text is the extracted text
     let cleanText = data.text.replace(/\s+/g, ' ').trim();
     console.log(cleanText);

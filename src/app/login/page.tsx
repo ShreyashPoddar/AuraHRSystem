@@ -178,7 +178,9 @@ export default function LoginPage() {
           className="mt-4 text-center text-xs text-ink/30"
         >
           Development mode — Connect to Moodle at{' '}
-          <code className="font-mono bg-ink/5 px-1.5 py-0.5 rounded">localhost/moodle</code>
+          <code className="font-mono bg-ink/5 px-1.5 py-0.5 rounded">
+            {process.env.NEXT_PUBLIC_MOODLE_URL ?? 'localhost/moodle'}
+          </code>
         </motion.div>
       </motion.div>
     </div>

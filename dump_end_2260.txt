@@ -1,0 +1,81 @@
+Created At: 2026-06-03T09:40:01Z
+Completed At: 2026-06-03T09:40:02Z
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 884
+Total Bytes: 40051
+Showing lines 760 to 884
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+760:                     : 'bg-ink/10 text-ink/30 cursor-not-allowed'}`}
+761:               >
+762:                 {micPass ? 'Confirm Mic ✓' : 'Speak to Continue'}
+763:               </button>
+764:             </div>
+765:           </motion.div>
+766:         </div>
+767:       )}
+768:     </div>
+769:   );
+770: 
+771:   // ── Active test ────────────────────────────────────────────────────────
+772:   return (
+773:     <div className="fixed inset-0 bg-cream z-50 overflow-y-auto p-8 pt-12">
+774:       <div className="max-w-4xl mx-auto flex gap-8">
+775: 
+776:         {/* Question nav */}
+777:         <div className="w-64 shrink-0">
+778:           <div className="bento-card p-5 sticky top-6 space-y-4">
+779:             {violationCount > 0 && (
+780:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+781:                 ${flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+782:                 <ShieldAlert size={14} />
+783:                 {violationCount} Violation{violationCount !== 1 ? 's' : ''}
+784:                 {flagged ? ' — FLAGGED' : ''}
+785:               </div>
+786:             )}
+787:             <div className="grid grid-cols-4 gap-2">
+788:               {questions.map((_, idx) => (
+789:                 <button key={idx} onClick={() => setCurrentQ(idx)}
+790:                   className={`w-10 h-10 rounded-xl font-mono text-sm font-bold flex items-center justify-cen
+<truncated 2812 bytes>
+rget.value }))}
+845:                   placeholder="Type your answer here…"
+846:                   className="w-full h-48 bg-white border border-ink/10 rounded-2xl p-4 text-sm
+847:                     focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+848:                 />
+849:               )}
+850:             </div>
+851: 
+852:             <div className="mt-10 pt-6 border-t border-ink/10 flex items-center justify-between">
+853:               <button
+854:                 onClick={() => setCurrentQ(prev => Math.max(0, prev - 1))}
+855:                 disabled={currentQ === 0}
+856:                 className="px-5 py-2.5 rounded-xl font-semibold text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 transition-colors"
+857:               >
+858:                 Previous
+859:               </button>
+860: 
+861:               {isLast ? (
+862:                 <button onClick={handleSubmit} disabled={submitting}
+863:                   className="px-8 py-2.5 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+864:                 >
+865:                   {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+866:                   Submit Assessment
+867:                 </button>
+868:               ) : (
+869:                 <button
+870:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+871:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+872:                 >
+873:                   Next
+874:                 </button>
+875:               )}
+876:             </div>
+877:           </div>
+878:         </div>
+879:       </div>
+880:     </div>
+881:   );
+882: }
+883: 
+884: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

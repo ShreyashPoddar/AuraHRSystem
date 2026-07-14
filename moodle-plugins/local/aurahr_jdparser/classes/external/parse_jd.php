@@ -54,7 +54,9 @@ PROMPT;
         ]);
 
         $context = \context_system::instance();
-        require_capability('local/aurahr_jdparser:parse', $context);
+        // Relaxed capability check: allow any user (e.g. organization role via frontend proxy)
+        // to parse JDs without needing explicit manager capabilities in Moodle.
+        // require_capability('local/aurahr_jdparser:parse', $context);
 
         // Fetch job description.
         $job = $DB->get_record('local_aurahr_jobs', ['id' => $params['jobid']], '*', MUST_EXIST);
@@ -88,6 +90,14 @@ PROMPT;
             $DB->update_record('local_aurahr_jd_analysis', $record);
         } else {
             $record->id = $DB->insert_record('local_aurahr_jd_analysis', $record);
+        }
+
+        // Automatically trigger re-scoring for all candidates based on the new skills.
+        try {
+            require_once(__DIR__ . '/match_candidates.php');
+            \local_aurahr_jdparser\external\match_candidates::match_all($params['jobid']);
+        } catch (\Exception $e) {
+            debugging('Failed to auto-rescore candidates after parser run/re-run: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
 
         return [

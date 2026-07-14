@@ -137,14 +137,12 @@ export async function moodleLogin(
     }),
   });
 
-  if (!res.ok) {
-    throw new Error('Login failed. Please check your credentials.');
-  }
+  // Always parse the body first — even on non-OK responses the proxy returns
+  // a JSON { error: "..." } with the actual Moodle reason.
+  const data = await res.json().catch(() => ({})) as { token?: string; user?: MoodleUser; error?: string };
 
-  const data = await res.json();
-
-  if (data.error) {
-    throw new Error(data.error);
+  if (!res.ok || data.error) {
+    throw new Error(data.error || 'Login failed. Please check your credentials.');
   }
 
   const { token, user } = data as { token: string; user: MoodleUser };

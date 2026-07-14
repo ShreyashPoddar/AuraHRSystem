@@ -1,0 +1,55 @@
+The USER performed the following action:
+Show the contents of file c:\Users\shrey\Desktop\AuraHR\AuraHR\src\app\candidate\test\[id]\page.tsx from lines 879 to 925
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1012
+Total Bytes: 45653
+Showing lines 879 to 925
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+879:               </button>
+880:             </div>
+881:           </motion.div>
+882:         </div>
+883:       )}
+884:     </div>
+885:   );
+886: 
+887:   
+888: 
+889:   // ── Active test ────────────────────────────────────────────────────────
+890:   return (
+891:     <div className="fixed inset-0 bg-cream z-50 overflow-y-auto p-8 pt-12">
+892:         <AssessmentHeader title="Technical Assessment" timeLeft={timeLeft} totalTime={totalTime} />
+893:         <ViolationToast count={violationCount} flagged={flagged} />
+894:         <div className="max-w-4xl mx-auto flex gap-8">
+895:         {/* Question nav + Timer */}
+896:         <div className="w-64 shrink-0">
+897:           <div className="bento-card p-5 sticky top-6 space-y-4">
+898:               ${timeLeft <= 60
+899:                 ? 'bg-red-100 text-red-600 animate-pulse'
+900:                 : timeLeft <= 300
+901:                   ? 'bg-amber-50 text-amber-600'
+902:                   : 'bg-ink/5 text-ink'}`}>
+903:               <Clock size={18} className="shrink-0" />
+904:               {formatTime(timeLeft)}
+905:             </div>
+906: 
+907:             {violationCount > 0 && (
+908:               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold
+909:                 ${flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+910:                 <ShieldAlert size={14} />
+911:                 {violationCount} Violation{violationCount !== 1 ? 's' : ''}
+912:                 {flagged ? ' — FLAGGED' : ''}
+913:               </div>
+914:             )}
+915:             <div className="grid grid-cols-4 gap-2">
+916:               {questions.map((_, idx) => (
+917:                 <button key={idx} onClick={() => setCurrentQ(idx)}
+918:                   className={`w-10 h-10 rounded-xl font-mono text-sm font-bold flex items-center justify-center transition-colors
+919:                     ${currentQ === idx
+920:                       ? 'bg-blue-500 text-white ring-2 ring-blue-500 ring-offset-2'
+921:                       : answers[idx]
+922:                         ? 'bg-emerald-100 text-emerald-700'
+923:                         : 'bg-ink/5 text-ink/40 hover:bg-ink/10'}`}
+924:                 >
+925:                   {idx + 1}
+

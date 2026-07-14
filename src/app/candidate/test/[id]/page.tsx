@@ -15,7 +15,7 @@ import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import Tesseract from 'tesseract.js';
-// face-landmarks-detection loaded dynamically to avoid Turbopack/mediapipe bundler issues
+import { normaliseLegacyStage } from '@/lib/pipeline';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -146,7 +146,7 @@ export default function CandidateTestPage() {
           if (Array.isArray(data.questions)) setQuestions(data.questions);
 
           // Check if candidate is already disqualified from Moodle database state on page load
-          if (data.user_stage === 'rejected' || (data.user_malpractice || 0) >= 5) {
+          if (normaliseLegacyStage(data.user_stage) === 'Rejected' || (data.user_malpractice || 0) >= 5) {
             setViolationCount(data.user_malpractice || 5);
             setFlagged(true);
             setDisqualified(true);

@@ -62,6 +62,7 @@ class list_interviews extends external_api {
         foreach ($records as $r) {
             $interviews[] = [
                 'id'                   => (int)$r->id,
+                'applicationid'        => (int)$r->applicationid,
                 'jobid'                => (int)$r->jobid,
                 'applicationid'        => (int)$r->applicationid,
                 'job_title'            => $r->job_title,
@@ -87,6 +88,7 @@ class list_interviews extends external_api {
             'interviews' => new external_multiple_structure(
                 new external_single_structure([
                     'id'                => new external_value(PARAM_INT, 'Interview ID'),
+                    'applicationid'     => new external_value(PARAM_INT, 'Application ID'),
                     'jobid'             => new external_value(PARAM_INT, 'Job ID'),
                     'applicationid'     => new external_value(PARAM_INT, 'Application ID'),
                     'job_title'         => new external_value(PARAM_TEXT, 'Job title'),

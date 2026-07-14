@@ -53,7 +53,7 @@ class schedule_test extends external_api {
             // Reset the candidate's application record (reset malpractice, set stage to academia, clear score)
             $app = $DB->get_record('local_aurahr_applications', ['id' => $enrol->applicationid]);
             if ($app) {
-                $app->stage = 'academia';
+                $app->stage = 'Assessment Invited';
                 $app->malpractice = 0;
                 $app->academia_score = null;
                 $app->overall_score = \local_aurahr_jobs\util::calculate_overall_score($app);
@@ -62,11 +62,10 @@ class schedule_test extends external_api {
             }
         }
 
-        // Enroll all candidates currently in the 'screened' stage.
-        // We look for applications to the related job that have stage = 'screened'.
+        // Enroll all candidates currently in the 'Shortlisted', 'Screening Cleared', or legacy 'screened' stage.
         $sql = "SELECT a.id, a.userid
                 FROM {local_aurahr_applications} a
-                WHERE a.jobid = :jobid AND a.stage = 'screened'";
+                WHERE a.jobid = :jobid AND a.stage IN ('Shortlisted', 'Screening Cleared', 'Screening Scheduled', 'screened')";
         $applications = $DB->get_records_sql($sql, ['jobid' => $assessment->jobid]);
 
         $enrolled_count = 0;
@@ -82,9 +81,9 @@ class schedule_test extends external_api {
                 ];
                 $DB->insert_record('local_aurahr_assess_enrol', $enrol);
                 
-                // Update application stage to academia.
+                // Update application stage to Assessment Invited.
                 $app_update = clone $app;
-                $app_update->stage = 'academia';
+                $app_update->stage = 'Assessment Invited';
                 $app_update->timemodified = $now;
                 $DB->update_record('local_aurahr_applications', $app_update);
                 

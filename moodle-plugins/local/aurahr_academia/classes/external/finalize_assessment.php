@@ -29,8 +29,23 @@ class finalize_assessment extends external_api {
         $context = \context_system::instance();
         require_capability('local/aurahr_academia:manage', $context);
 
-        // Fetch the latest assessment for this job.
-        $assessments = $DB->get_records('local_aurahr_assessments', ['jobid' => $params['jobid']], 'id DESC', '*', 0, 1);
+        // Smart selection: prefer active/scheduled assessments over draft ones.
+        // This prevents finalizing an empty draft when a real completed assessment exists.
+        $sql = "SELECT a.*, COUNT(e.id) as enrol_count
+                FROM {local_aurahr_assessments} a
+                LEFT JOIN {local_aurahr_assess_enrol} e ON e.assessmentid = a.id
+                WHERE a.jobid = :jobid
+                GROUP BY a.id
+                ORDER BY
+                    CASE a.status
+                        WHEN 'active'    THEN 1
+                        WHEN 'scheduled' THEN 2
+                        WHEN 'completed' THEN 3
+                        ELSE 4
+                    END ASC,
+                    COUNT(e.id) DESC,
+                    a.id DESC";
+        $assessments = $DB->get_records_sql($sql, ['jobid' => $params['jobid']], 0, 1);
         $assessment = $assessments ? reset($assessments) : null;
         if (!$assessment) {
             throw new \moodle_exception('assessmentnotfound', 'local_aurahr_academia');
@@ -48,10 +63,16 @@ class finalize_assessment extends external_api {
                 WHERE e.assessmentid = :assessmentid";
         $enrollments = $DB->get_records_sql($sql, ['assessmentid' => $assessment->id]);
 
-        // Sort enrollments: higher scores first, absent/null scores last.
+        // Sort enrollments: higher scores first, candidates who never submitted last.
         usort($enrollments, function($a, $b) {
-            $scoreA = isset($a->score) ? (float)$a->score : 0.0;
-            $scoreB = isset($b->score) ? (float)$b->score : 0.0;
+            $aHasScore = ($a->score !== null && $a->score !== '');
+            $bHasScore = ($b->score !== null && $b->score !== '');
+            // Push candidates with no score to the end
+            if ($aHasScore !== $bHasScore) {
+                return $aHasScore ? -1 : 1;
+            }
+            $scoreA = $aHasScore ? (float)$a->score : 0.0;
+            $scoreB = $bHasScore ? (float)$b->score : 0.0;
             if ($scoreA != $scoreB) {
                 return $scoreB <=> $scoreA; // Descending
             }
@@ -71,30 +92,49 @@ class finalize_assessment extends external_api {
 
             $enrol_update = clone $e;
 
+            // Sync academia_score to the application table only if the candidate submitted.
+            // Candidates who never submitted keep academia_score = NULL so the ranked table
+            // shows '—' rather than a misleading 0. (Moodle's REST layer also strips 0.0
+            // for VALUE_OPTIONAL PARAM_FLOAT fields, making it indistinguishable from no score.)
+            if ($e->score !== null && $e->score !== '') {
+                $app->academia_score = (float)$e->score;
+            }
+            // else: leave $app->academia_score as-is (NULL for non-submitters)
+            $app->overall_score  = \local_aurahr_jobs\util::calculate_overall_score($app);
+
             if ($index < $params['pass_count']) {
-                // Promote to interview if currently in academia or screened
-                if ($app->stage === 'academia' || $app->stage === 'screened') {
-                    $app->stage = 'interview';
-                    $app->timemodified = $now;
-                    $DB->update_record('local_aurahr_applications', $app);
+                // Promote to interview if currently in assessment or legacy stages
+                if (in_array($app->stage, ['academia', 'screened', 'Assessment Invited', 'Assessment In Progress', 'Assessment Completed'])) {
+                    $app->stage = 'Assessment Cleared';
                 }
                 $enrol_update->passed = 1;
                 $enrol_update->status = 'completed';
                 $DB->update_record('local_aurahr_assess_enrol', $enrol_update);
                 $passed_count++;
             } else {
-                // Reject if currently in academia or screened
-                if ($app->stage === 'academia' || $app->stage === 'screened') {
-                    $app->stage = 'rejected';
-                    $app->timemodified = $now;
-                    $DB->update_record('local_aurahr_applications', $app);
+                // Reject if currently in assessment or legacy stages
+                if (in_array($app->stage, ['academia', 'screened', 'Assessment Invited', 'Assessment In Progress', 'Assessment Completed'])) {
+                    $app->stage = 'Rejected';
                 }
                 $enrol_update->passed = 0;
                 $enrol_update->status = 'completed';
                 $DB->update_record('local_aurahr_assess_enrol', $enrol_update);
                 $rejected_count++;
             }
+
+            // Persist all application changes (stage + score) in one update.
+            $app->timemodified = $now;
+            $DB->update_record('local_aurahr_applications', $app);
             $index++;
+        }
+
+        // Auto-schedule passed candidates immediately.
+        if ($passed_count > 0) {
+            try {
+                \local_aurahr_scheduler\external\auto_schedule::execute($params['jobid']);
+            } catch (\Exception $e) {
+                // Ignore or log error to prevent finalization failing if auto schedule has configuration issues.
+            }
         }
 
         return [

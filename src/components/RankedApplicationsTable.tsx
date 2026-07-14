@@ -4,11 +4,22 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, ArrowUpDown, Users, AlertTriangle,
-  Loader2, Star, Eye, X, Mail, Phone, MapPin, Briefcase, GraduationCap, Code, Video,
-  FileText, ChevronRight, RefreshCw
+  Loader2, X, Mail, Phone, MapPin, GraduationCap, Code, Video,
+  FileText, ChevronRight, RefreshCw, ShieldAlert, PauseCircle
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import RadarChart from '@/components/RadarChart';
+import {
+  STAGE_META,
+  getManualMoveOptions,
+  getFullStandardManualOptions,
+  type PipelineStage,
+  PIPELINE_STAGES,
+  normaliseLegacyStage,
+  getMacroGroup,
+  MACRO_PIPELINE,
+  isOverrideOption,
+} from '@/lib/pipeline';
 
 interface Application {
   rank: number;
@@ -22,13 +33,13 @@ interface Application {
   jd_score?: number | null;
   academia_score?: number | null;
   interview_score?: number | null;
-  github_score?: number | null;
-  leetcode_score?: number | null;
   overall_score?: number | null;
   malpractice: number;
   recruiter_rating: number;
   timecreated: number;
   timemodified: number;
+  resumeUrl?: string | null;
+  kekaId?: string | null; // KEKA candidate UUID — needed for lazy resume fetch
 }
 
 interface ApplicationDetail {
@@ -55,10 +66,6 @@ interface ApplicationDetail {
   role: string;
   education_details: string;
   resume_skills: string;
-  github_score: number | null;
-  leetcode_score: number | null;
-  github_url?: string;
-  leetcode_url?: string;
   matched_skills: string;
   recruiter_rating: number;
   recruiter_feedback: string;
@@ -67,17 +74,40 @@ interface ApplicationDetail {
   timemodified: number;
 }
 
-const STAGES = ['applied', 'screened', 'academia', 'interview', 'offer', 'selected', 'rejected'];
+// ── Stage helpers (sourced from central pipeline module) ────────────
 
-const stageColors: Record<string, string> = {
-  applied: 'bg-blue-500/15 text-blue-700 border-blue-200',
-  screened: 'bg-amber-500/15 text-amber-700 border-amber-200',
-  academia: 'bg-purple-500/15 text-purple-700 border-purple-200',
-  interview: 'bg-gold/15 text-gold border-gold/30',
-  offer: 'bg-sage/15 text-sage border-sage/30',
-  selected: 'bg-emerald-500/15 text-emerald-700 border-emerald-200',
-  rejected: 'bg-rust/15 text-rust border-rust/30',
-};
+/**
+ * Returns badge classes for any stage string.
+ * Normalises legacy Moodle lowercase stages to the 12-stage enum first.
+ */
+function getStageBadgeClass(stage: string): string {
+  const normalised = normaliseLegacyStage(stage);
+  return STAGE_META[normalised]?.badgeClass ?? 'bg-ink/5 text-ink/50 border-ink/10';
+}
+
+/**
+ * Returns the human-readable label for any stage string.
+ */
+function getStageLabel(stage: string): string {
+  const normalised = normaliseLegacyStage(stage);
+  return STAGE_META[normalised]?.label ?? stage;
+}
+
+/**
+ * Returns tooltip for automated/restricted stages.
+ */
+function getStageTooltip(stage: string): string | undefined {
+  const normalised = normaliseLegacyStage(stage);
+  const meta = STAGE_META[normalised];
+  if (!meta) return undefined;
+  if (normalised === 'Imported' || normalised === 'Under AI Screening') {
+    return 'AI is evaluating this candidate — only Reject or Hold overrides are allowed.';
+  }
+  if (normalised === 'Assessment In Progress' || normalised === 'Assessment Completed') {
+    return 'Moodle owns this transition. Only Reject or Hold overrides are available.';
+  }
+  return undefined;
+}
 
 function formatDate(ts: number) {
   if (!ts) return '—';
@@ -94,11 +124,13 @@ function scoreColor(score: number | null | undefined) {
 }
 
 interface RankedApplicationsTableProps {
-  jobId: number;
+  jobId: number | string;
   refreshTrigger?: number;
+  applications?: Application[];
 }
 
-export default function RankedApplicationsTable({ jobId, refreshTrigger }: RankedApplicationsTableProps) {
+export default function RankedApplicationsTable(props: RankedApplicationsTableProps) {
+  const { jobId, refreshTrigger } = props;
   const [applications, setApplications] = useState<Application[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -108,13 +140,41 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [selectedApp, setSelectedApp] = useState<ApplicationDetail | null>(null);
+  const [selectedApp, setSelectedApp] = useState<string | number | null>(null);
+  const [moodleDetails, setMoodleDetails] = useState<ApplicationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [stageCounts, setStageCounts] = useState<Array<{stage: string, count: number}>>([]);
+  const [stageCounts, setStageCounts] = useState<Array<{ stage: string, count: number }>>([]);
+  const [loadingResumeId, setLoadingResumeId] = useState<number | string | null>(null);
+  const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+
+  useEffect(() => {
+    if (isKekaJob && props.applications) {
+      setApplications(props.applications);
+      setTotal(props.applications.length);
+      setLoading(false);
+    }
+  }, [props.applications, isKekaJob]);
 
   const loadApplications = useCallback(async (isBackground = false) => {
     if (!jobId) return;
+
+    // Schema Check: If it's a Keka UUID, short-circuit and rely on props
+    if (isKekaJob) {
+      if (props.applications) {
+        setApplications(props.applications);
+        setTotal(props.applications.length);
+      } else {
+        setApplications([]);
+        setTotal(0);
+      }
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     if (!isBackground) setLoading(true);
     else setRefreshing(true);
     try {
@@ -134,7 +194,7 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
       setLoading(false);
       setRefreshing(false);
     }
-  }, [jobId, stageFilter, search, sortField, sortDir, refreshTrigger]);
+  }, [jobId, stageFilter, search, sortField, sortDir, refreshTrigger, props.applications]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
 
@@ -149,11 +209,17 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
     };
   }, [loadApplications]);
 
-  async function openDetail(appId: number) {
+  async function openDetail(app: any) {
+    const appId = typeof app === 'object' ? app.id : app;
+    setSelectedApp(appId); // Store ID for live state sync
+    if (typeof appId === 'string' && String(appId).includes('-')) {
+      // Keka candidates don't need additional fetching
+      return;
+    }
     setDetailLoading(true);
     try {
       const detail = await moodleCall<ApplicationDetail>('local_aurahr_jobs_get_application', { applicationid: appId });
-      setSelectedApp(detail);
+      setMoodleDetails(detail);
     } catch (err) {
       console.error(err);
     } finally {
@@ -195,14 +261,13 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
         </div>
       </div>
 
-      {/* Pipeline chips */}
+      {/* Pipeline chips — grouped by macro stage */}
       {stageCounts.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setStageFilter('')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-              stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-            }`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+              }`}
           >
             All ({stageCounts.reduce((acc, curr) => acc + curr.count, 0)})
           </button>
@@ -210,13 +275,12 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
             <button
               key={s.stage}
               onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border ${
-                stageFilter === s.stage
-                  ? stageColors[s.stage] || 'bg-ink text-cream border-ink'
-                  : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${stageFilter === s.stage
+                ? getStageBadgeClass(s.stage)
+                : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+                }`}
             >
-              {s.stage} ({s.count})
+              {getStageLabel(s.stage)} ({s.count})
             </button>
           ))}
         </div>
@@ -241,9 +305,8 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
             <button
               key={f}
               onClick={() => toggleSort(f)}
-              className={`px-2 py-1 rounded-lg transition-colors ${
-                sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
-              }`}
+              className={`px-2 py-1 rounded-lg transition-colors ${sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
+                }`}
             >
               {f.replace('_', ' ').replace('timecreated', 'date')}
               {sortField === f && (
@@ -269,106 +332,187 @@ export default function RankedApplicationsTable({ jobId, refreshTrigger }: Ranke
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px]">
               <thead>
-              <tr className="border-b border-ink/8 bg-warm-sand/30">
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">GitHub</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">LeetCode</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
-                <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Stage</th>
-                <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Malpractice</th>
-                <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider whitespace-nowrap">Overall Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {applications.map((app, idx) => (
-                <motion.tr
-                  key={app.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: idx * 0.03 }}
-                  className="border-b border-ink/5 hover:bg-warm-sand/20 transition-colors group"
-                >
-                  <td className="px-5 py-4">
-                    <span className="text-xs font-mono text-ink/40 font-medium">{idx + 1}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div 
-                      className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => openDetail(app.id)}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage/40 to-gold/40 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                        {app.firstname[0]}{app.lastname[0]}
+                <tr className="border-b border-ink/8 bg-warm-sand/30">
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
+                  <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Resume</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Interview</th>
+                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Stage</th>
+                  <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Malpractice</th>
+                  <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider whitespace-nowrap">Overall Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map((app, idx) => (
+                  <motion.tr
+                    key={app.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className="border-b border-ink/5 hover:bg-warm-sand/20 transition-colors group"
+                  >
+                    <td className="px-5 py-4">
+                      <span className="text-xs font-mono text-ink/40 font-medium">{idx + 1}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => openDetail(app)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sage/40 to-gold/40 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          {app.firstname[0]}{app.lastname[0]}
+                        </div>
+                        <p className="text-sm font-semibold text-ink truncate max-w-[150px] hover:text-sage transition-colors">{app.firstname} {app.lastname}</p>
                       </div>
-                      <p className="text-sm font-semibold text-ink truncate max-w-[150px] hover:text-sage transition-colors">{app.firstname} {app.lastname}</p>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.github_score)}`}>
-                    {app.github_score !== null && app.github_score !== undefined ? `${app.github_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.leetcode_score)}`}>
-                    {app.leetcode_score !== null && app.leetcode_score !== undefined ? `${app.leetcode_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
-                    {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.academia_score)}`}>
-                    {app.academia_score !== null && app.academia_score !== undefined ? `${app.academia_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.interview_score)}`}>
-                    {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg capitalize whitespace-nowrap ${stageColors[app.stage] || 'bg-ink/5 text-ink/50'}`}>
-                      {app.stage}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-center whitespace-nowrap">
-                    {app.malpractice >= 5 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rust/10 text-rust rounded-lg text-xs font-bold border border-rust/20" title={`${app.malpractice} violations (Disqualified)`}>
-                        <AlertTriangle size={12} />
-                        <span>{app.malpractice} (Disqualified)</span>
-                      </span>
-                    ) : app.malpractice > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 rounded-lg text-xs font-bold border border-amber-200/50" title={`${app.malpractice} violations flagged`}>
-                        <AlertTriangle size={12} />
-                        <span>{app.malpractice} Flags</span>
-                      </span>
-                    ) : (
-                      <span className="text-ink/20 font-medium">—</span>
-                    )}
-                  </td>
-                  <td className={`px-5 py-4 text-right text-sm font-mono font-bold ${scoreColor(app.overall_score)}`}>
-                    {app.overall_score !== null && app.overall_score !== undefined ? `${app.overall_score.toFixed(1)}` : '—'}
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      {(() => {
+                        // For Keka candidates, app.id IS the Keka UUID.
+                        // app.kekaId is an optional override; fall back to app.id when it's a UUID.
+                        const effectiveKekaId: string | null =
+                          app.kekaId ||
+                          (typeof app.id === 'string' && String(app.id).includes('-') ? String(app.id) : null);
+
+                        // Priority: local state cache > prop from server > not loaded
+                        const url = resolvedUrls[String(app.id)] ?? app.resumeUrl;
+
+                        if (loadingResumeId === app.id) {
+                          return <Loader2 size={16} className="animate-spin text-ink/30 mx-auto" />;
+                        }
+
+                        if (url) {
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(url, '_blank');
+                              }}
+                              className="text-slate-400 hover:text-green-700 transition-colors inline-flex items-center justify-center p-1"
+                              title="View Resume"
+                            >
+                              <FileText size={18} />
+                            </button>
+                          );
+                        }
+
+                        if (!effectiveKekaId) {
+                          // Non-Keka candidate with no resume URL — static dash
+                          return <span className="text-ink/20">—</span>;
+                        }
+
+                        // Resume not yet fetched — clickable dash triggers lazy fetch
+                        return (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setLoadingResumeId(app.id);
+                              try {
+                                const params = new URLSearchParams({
+                                  email: app.email,
+                                  kekaId: effectiveKekaId,
+                                });
+                                const res = await fetch(`/api/keka/candidate-resume?${params}`);
+                                const data = await res.json();
+                                if (data.success && data.url) {
+                                  setResolvedUrls(prev => ({ ...prev, [String(app.id)]: data.url }));
+                                  window.open(data.url, '_blank');
+                                }
+                                // If no URL returned, silently revert to dash
+                              } catch {
+                                // Network error — silently revert to dash
+                              } finally {
+                                setLoadingResumeId(null);
+                              }
+                            }}
+                            className="text-ink/30 hover:text-green-700 transition-colors inline-flex items-center justify-center p-1 group"
+                            title="Click to load resume"
+                          >
+                            <FileText size={16} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.jd_score)}`}>
+                      {app.jd_score !== null && app.jd_score !== undefined ? `${app.jd_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.academia_score)}`}>
+                      {app.academia_score !== null && app.academia_score !== undefined ? `${app.academia_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-medium ${scoreColor(app.interview_score)}`}>
+                      {app.interview_score !== null && app.interview_score !== undefined ? `${app.interview_score.toFixed(1)}` : '—'}
+                    </td>
+                    <td className="px-5 py-4">
+                      {/* Micro-stage badge with animated dot for live states */}
+                      <div className="flex items-center gap-2">
+                        {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                        )}
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${getStageBadgeClass(app.stage)}`}>
+                          {getStageLabel(app.stage)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-center whitespace-nowrap">
+                      {app.malpractice >= 5 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rust/10 text-rust rounded-lg text-xs font-bold border border-rust/20" title={`${app.malpractice} violations (Disqualified)`}>
+                          <AlertTriangle size={12} />
+                          <span>{app.malpractice} (Disqualified)</span>
+                        </span>
+                      ) : app.malpractice > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 rounded-lg text-xs font-bold border border-amber-200/50" title={`${app.malpractice} violations flagged`}>
+                          <AlertTriangle size={12} />
+                          <span>{app.malpractice} Flags</span>
+                        </span>
+                      ) : (
+                        <span className="text-ink/20 font-medium">—</span>
+                      )}
+                    </td>
+                    <td className={`px-5 py-4 text-right text-sm font-mono font-bold ${scoreColor(app.overall_score)}`}>
+                      {app.overall_score !== null && app.overall_score !== undefined ? `${app.overall_score.toFixed(1)}` : '—'}
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* Candidate Detail Popup */}
       <AnimatePresence>
-        {(selectedApp || detailLoading) && (
-          <CandidateDetailPopup
-            app={selectedApp}
-            loading={detailLoading}
-            onClose={() => setSelectedApp(null)}
-            onStageUpdate={loadApplications}
-          />
-        )}
+        {selectedApp && (() => {
+          const liveApp = applications.find(a => String(a.id) === String(selectedApp));
+          const activeCandidate = moodleDetails && String(moodleDetails.id) === String(selectedApp)
+            ? { ...moodleDetails, ...liveApp }
+            : liveApp;
+          return activeCandidate ? (
+            <CandidateDetailPopup
+              app={activeCandidate as any}
+              loading={detailLoading}
+              onClose={() => {
+                setSelectedApp(null);
+                setMoodleDetails(null);
+              }}
+              onStageUpdate={(newStage?: string, appId?: string) => {
+                if (newStage && appId) {
+                  setApplications(prev => prev.map(a => String(a.id) === appId ? { ...a, stage: newStage } : a));
+                } else {
+                  loadApplications();
+                }
+              }}
+            />
+          ) : null;
+        })()}
       </AnimatePresence>
     </div>
   );
@@ -385,13 +529,26 @@ function CandidateDetailPopup({
   app: ApplicationDetail | null;
   loading: boolean;
   onClose: () => void;
-  onStageUpdate: () => void;
+  onStageUpdate: (newStage?: string, appId?: string) => void;
 }) {
   const [updating, setUpdating] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Flatten Metric Data Mapping
+  const isKekaJob = app && typeof app.id === 'string' && String(app.id).includes('-');
+  const jdScore = app?.jd_score ?? 0;
+  const overallScore = app?.overall_score ?? 0;
+  const isKekaEvaluated = isKekaJob && app?.jd_score !== undefined && app?.jd_score !== null;
+
   async function moveStage(newStage: string) {
     if (!app) return;
+
+    if (isKekaJob) {
+      onStageUpdate(newStage, String(app.id));
+      setShowDropdown(false);
+      return;
+    }
+
     setUpdating(true);
     setShowDropdown(false);
     try {
@@ -467,25 +624,58 @@ function CandidateDetailPopup({
                     <ChevronRight size={14} className={`transition-transform ${showDropdown ? 'rotate-90' : ''}`} />
                   </button>
                   <AnimatePresence>
-                    {showDropdown && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-48 bg-white border border-ink/10 rounded-xl shadow-xl overflow-hidden z-10"
-                      >
-                        <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5">Move to stage</div>
-                        {STAGES.filter(s => s !== app.stage).map(s => (
-                          <button
-                            key={s}
-                            onClick={() => moveStage(s)}
-                            className="w-full text-left px-4 py-2.5 text-sm font-semibold capitalize hover:bg-sage/10 hover:text-sage transition-colors"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
+                    {showDropdown && (() => {
+                      const options = isKekaJob
+                        ? getFullStandardManualOptions(app.stage)
+                        : getManualMoveOptions(app.stage);
+                      const forwardOptions = options.filter(s => !isOverrideOption(s));
+                      const overrideOptions = options.filter(s => isOverrideOption(s));
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute right-0 mt-2 w-56 bg-white border border-ink/10 rounded-xl shadow-xl overflow-hidden z-10"
+                        >
+                          {/* Forward stage options */}
+                          {forwardOptions.length > 0 && (
+                            <>
+                              <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5">Move to stage</div>
+                              {forwardOptions.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => moveStage(s)}
+                                  className="w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-sage/10 hover:text-sage flex items-center gap-2"
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[s]?.dotClass ?? 'bg-ink/20'}`} />
+                                  {STAGE_META[s]?.label ?? s}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                          {/* Always-available override exits */}
+                          {overrideOptions.length > 0 && (
+                            <>
+                              <div className="px-3 py-2 text-[10px] font-bold text-ink/40 uppercase tracking-wider bg-ink/5 border-t border-ink/5">
+                                Override
+                              </div>
+                              {overrideOptions.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => moveStage(s)}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${STAGE_META[s]?.terminal
+                                    ? 'text-red-600 hover:bg-red-50'
+                                    : 'text-zinc-600 hover:bg-zinc-50'
+                                    }`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                        </motion.div>
+                      );
+                    })()}
                   </AnimatePresence>
                 </div>
                 <button onClick={onClose} className="p-2 rounded-xl hover:bg-ink/5 text-ink/40 transition-colors">
@@ -498,9 +688,16 @@ function CandidateDetailPopup({
             <div className="flex items-center justify-between p-4 bg-warm-sand/30 rounded-2xl border border-ink/5">
               <div>
                 <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-1">Pipeline Stage</p>
-                <span className={`text-sm font-bold px-3 py-1 rounded-lg capitalize ${stageColors[app.stage] || 'bg-ink/5 text-ink/50'}`}>
-                  {app.stage}
+                {/* Micro stage badge */}
+                <span className={`text-sm font-bold px-3 py-1.5 rounded-lg border inline-flex items-center gap-2 ${getStageBadgeClass(app.stage)}`}>
+                  {(app.stage === 'Under AI Screening' || app.stage === 'Assessment In Progress') && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${STAGE_META[normaliseLegacyStage(app.stage)]?.dotClass ?? 'bg-ink/20'}`} />
+                  )}
+                  {getStageLabel(app.stage)}
                 </span>
+                {!isKekaJob && getStageTooltip(app.stage) && (
+                  <p className="text-[10px] text-ink/40 mt-1 max-w-[220px] leading-snug">{getStageTooltip(app.stage)}</p>
+                )}
               </div>
               {app.malpractice >= 5 ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-rust/10 border border-rust/20 rounded-lg text-rust">
@@ -532,16 +729,6 @@ function CandidateDetailPopup({
                   <MapPin size={12} /> {app.city}{app.country ? `, ${app.country}` : ''}
                 </span>
               )}
-              {app.github_url && (
-                <a href={app.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-ink bg-ink/10 hover:bg-ink/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> GitHub
-                </a>
-              )}
-              {app.leetcode_url && (
-                <a href={app.leetcode_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-gold bg-gold/10 hover:bg-gold/20 px-3 py-1.5 rounded-xl transition-colors">
-                  <Code size={12} /> LeetCode
-                </a>
-              )}
             </div>
 
             {/* Education Details */}
@@ -564,12 +751,10 @@ function CandidateDetailPopup({
                   <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">Core Assessment Scores</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <ScoreCard label="JD Parser" value={app.jd_score} />
+                  <ScoreCard label="JD Parser" value={jdScore} />
                   <ScoreCard label="Academia" value={app.academia_score} />
                   <ScoreCard label="Interview" value={app.interview_score} />
-                  <ScoreCard label="Overall" value={app.overall_score} highlight />
-                  {(app.github_score !== null && app.github_score !== undefined) ? <ScoreCard label="GitHub" value={app.github_score} /> : null}
-                  {(app.leetcode_score !== null && app.leetcode_score !== undefined) ? <ScoreCard label="LeetCode" value={app.leetcode_score} /> : null}
+                  <ScoreCard label="Overall" value={overallScore} highlight />
                 </div>
               </div>
 
@@ -578,10 +763,10 @@ function CandidateDetailPopup({
                 <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-2 w-full">Performance Radar</p>
                 <div className="w-full h-40">
                   <RadarChart data={{
-                    technical: app.jd_score || 0,
+                    technical: jdScore || 0,
                     culture: app.interview_score || 0,
                     communication: app.interview_score || 0,
-                    leadership: app.overall_score || 0,
+                    leadership: overallScore || 0,
                     adaptability: app.academia_score || 0
                   }} />
                 </div>
@@ -592,9 +777,7 @@ function CandidateDetailPopup({
             <div>
               <p className="text-[10px] font-bold text-ink/40 uppercase tracking-wider mb-3">Skill Sources & Scores</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={app.jd_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-ink" />} label="GitHub" score={app.github_score} />
-                <PlatformScoreCard icon={<Code size={16} className="text-gold" />} label="LeetCode" score={app.leetcode_score} />
+                <PlatformScoreCard icon={<FileText size={16} className="text-blue-500" />} label="Resume Skills" skills={app.resume_skills} score={jdScore} />
               </div>
             </div>
 
@@ -613,9 +796,9 @@ function CandidateDetailPopup({
             )}
 
             {/* Join Interview Button */}
-            {app.stage === 'interview' && (
+            {app.stage === 'Screening Scheduled' && (
               <div className="pt-2 border-t border-ink/10">
-                <button 
+                <button
                   onClick={() => window.location.href = `/org/interview/${app.id}`}
                   className="w-full py-3 bg-gold text-white rounded-xl text-sm font-bold shadow-md hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
                 >
@@ -633,7 +816,6 @@ function CandidateDetailPopup({
 function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null | undefined, skills?: string }) {
   if (score === null && !skills) return null;
   const validScore = (score !== null && score !== undefined) ? Math.min(100, Math.max(0, score)) : 0;
-  
   return (
     <div className="p-3.5 bg-white border border-ink/5 rounded-xl shadow-sm flex flex-col gap-2">
       <div className="flex items-center justify-between">

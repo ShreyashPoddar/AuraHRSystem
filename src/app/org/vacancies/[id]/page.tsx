@@ -13,9 +13,10 @@ import AcademiaRoundTab from '@/components/AcademiaRoundTab';
 import InterviewPanelTab from '@/components/InterviewPanelTab';
 import ResultsTab from '@/components/ResultsTab';
 import RankedApplicationsTable from '@/components/RankedApplicationsTable';
+import ExpandableJD from '@/components/ExpandableJD';
 
 interface Job {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   department: string;
@@ -60,8 +61,12 @@ type TabType = 'jd' | 'academia' | 'interviews' | 'results';
 
 export default function VacancyDetailPage() {
   const params = useParams();
-  const jobId = Number(params?.id);
+  const rawId = String(params?.id);
+  const isKekaJob = rawId.includes('-');
+  const jobId: string | number = isKekaJob ? rawId : Number(rawId);
+
   const [job, setJob] = useState<Job | null>(null);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('jd');
@@ -70,18 +75,81 @@ export default function VacancyDetailPage() {
   const [descInput, setDescInput] = useState('');
   const [savingDesc, setSavingDesc] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [archivingJob, setArchivingJob] = useState(false);
 
   const loadJob = useCallback(async () => {
-    if (!jobId) return;
+    if (!rawId) return;
+    setLoading(true);
+
     try {
-      const res = await moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId });
-      setJob(res);
+      if (isKekaJob) {
+        // Keka Pipeline
+        const kekaRes = await fetch('/api/keka/sync-jobs');
+        const kekaData = await kekaRes.json();
+        const kekaJob = kekaData.jobs?.find((j: any) => String(j.id) === rawId);
+        
+        if (kekaJob) {
+          const jdText = kekaJob.description || kekaJob.jobDescription || kekaJob.requirements || kekaJob.profile || "No description provided in Keka.";
+          setJob({
+            id: kekaJob.id,
+            title: kekaJob.title || kekaJob.jobTitle || 'Untitled',
+            description: jdText,
+            department: kekaJob.department || kekaJob.departmentName || '',
+            status: 'active',
+            vacancies: 1,
+            deadline: 0,
+            maxlimit: 100,
+            application_count: kekaJob.candidateCount ?? 0,
+            timecreated: 0,
+            stage_counts: [],
+          });
+        } else {
+          setJob(null);
+        }
+
+        // Fetch candidates for Keka Pipeline
+        const candidatesRes = await fetch(`/api/keka/sync-candidates?jobId=${rawId}`);
+        const candidatesData = await candidatesRes.json();
+        
+        if (candidatesData.success && Array.isArray(candidatesData.candidates)) {
+          const mapped = candidatesData.candidates.map((c: any, idx: number) => ({
+            rank: idx + 1,
+            id: c.id,
+            userid: 0,
+            jobid: jobId,
+            firstname: c.firstName || c.firstname || (c.name || '').split(' ')[0] || 'Unknown',
+            lastname: c.lastName || c.lastname || (c.name || '').split(' ').slice(1).join(' ') || '',
+            email: c.email || c.emailAddress || '',
+            stage: 'Imported',
+            jd_score: null,
+            academia_score: null,
+            interview_score: null,
+            overall_score: null,
+            malpractice: 0,
+            recruiter_rating: 0,
+            timecreated: c.appliedDate ? Math.floor(new Date(c.appliedDate).getTime() / 1000) : 0,
+            timemodified: 0,
+          }));
+          setApplications(mapped);
+          setJob(prev => prev ? { ...prev, application_count: mapped.length } : prev);
+        } else {
+          setApplications([]);
+        }
+      } else {
+        // Moodle Pipeline
+        const res: any = await moodleCall<Job>('local_aurahr_jobs_get_job', { jobid: jobId });
+        if (res.error || res.exception || res.errorcode || !res.id) {
+          throw new Error('Moodle returned an internal error or no job found');
+        }
+        setJob(res);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Data fetch failed:', err);
+      setJob(null);
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [rawId, isKekaJob, jobId]);
 
   useEffect(() => { loadJob(); }, [loadJob]);
 
@@ -92,6 +160,61 @@ export default function VacancyDetailPage() {
   }, [job]);
 
   async function runJDParser() {
+    if (isKekaJob) {
+      try {
+        setParsing(true);
+        const unparsedCandidates = applications.filter(app => app.stage === 'Imported' || app.jd_score === null);
+        
+        if (unparsedCandidates.length === 0) {
+            alert("All candidates have already been parsed.");
+            return;
+        }
+
+        // Process in chunks of 5 to parallelize but respect limits
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < unparsedCandidates.length; i += CHUNK_SIZE) {
+            const chunk = unparsedCandidates.slice(i, i + CHUNK_SIZE);
+            
+            await Promise.all(chunk.map(async (candidate) => {
+                try {
+                    const data = await fetch(`/api/keka/fetch-resume`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: candidate.id,
+                            email: candidate.email,
+                            jobDescription: job?.description || "No job description"
+                        })
+                    }).then(res => res.json());
+
+                    if (data.success && data.jdScore !== undefined) {
+                        setApplications(prev => prev.map(app => 
+                            app.id === candidate.id 
+                            ? { ...app, jd_score: data.jdScore, overall_score: data.jdScore, stage: 'Parsed' } 
+                            : app
+                        ));
+                    }
+                } catch (err) {
+                    console.error(`Failed to parse candidate ${candidate.id}`, err);
+                }
+            }));
+            
+            // Brief pause between chunks to avoid flooding Keka API
+            if (i + CHUNK_SIZE < unparsedCandidates.length) {
+                await new Promise(res => setTimeout(res, 500));
+            }
+        }
+
+        setRefreshTrigger(prev => prev + 1);
+      } catch (error) {
+        console.error("Bulk parsing failed", error);
+        alert("An error occurred during bulk parsing.");
+      } finally {
+        setParsing(false);
+      }
+      return;
+    }
+
     setParsing(true);
     try {
       await moodleCall('local_aurahr_jdparser_parse', { jobid: jobId });
@@ -119,6 +242,20 @@ export default function VacancyDetailPage() {
     }
   }
 
+  async function archiveJob() {
+    if (!confirm('Are you sure you want to archive this job?')) return;
+    setArchivingJob(true);
+    try {
+      await moodleCall('local_aurahr_jobs_update_job', { jobid: jobId, status: 'archived' });
+      await loadJob();
+    } catch (err) {
+      console.error('Failed to archive job', err);
+      alert('Failed to archive job.');
+    } finally {
+      setArchivingJob(false);
+    }
+  }
+
   function formatDate(ts: number) {
     if (!ts) return '—';
     return new Date(ts * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -138,27 +275,29 @@ export default function VacancyDetailPage() {
 
   const hasAnalysis = !!job.jd_analysis;
   
-  // Calculate breakdown stats
-  const getStageCount = (stage: string) => job.stage_counts.find(s => s.stage === stage)?.count || 0;
-  const appliedCount = job.application_count;
-  const academiaQualified = getStageCount('screened') + getStageCount('academia') + getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
-  const interviewQualified = getStageCount('interview') + getStageCount('offer') + getStageCount('selected');
-  const interviewsPending = getStageCount('interview');
-  const selectedCount = getStageCount('selected');
+  // Calculate breakdown stats dynamically from local state
+  const appliedCount = applications.length;
+  const academiaQualified = applications.filter(app => app.stage === 'Screening Cleared' || app.stage === 'Shortlisted' || app.stage === 'Assessment Invited' || app.stage === 'Assessment In Progress' || app.stage === 'Assessment Completed' || app.stage === 'Interview Scheduled' || app.stage === 'Interview Cleared' || app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const interviewQualified = applications.filter(app => app.stage === 'Interview Scheduled' || app.stage === 'Interview Cleared' || app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const interviewsPending = applications.filter(app => app.stage === 'Interview Scheduled').length;
+  const selectedCount = applications.filter(app => app.stage === 'Hired / Offer stage' || app.stage === 'Selected').length;
+  const isJdAnalyzed = job.jd_analysis || applications.some(app => app.jd_score !== undefined && app.jd_score > 0);
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 flex-1 w-full">
       {/* Header */}
       <div className="bento-card p-6 border-l-4 border-sage">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-ink">{job.title}</h1>
-            <p className="text-sm text-ink/40 mt-1">
-              {job.department || 'General'} · Created: <span className="text-ink/70 font-medium">{formatDate(job.timecreated)}</span> · Date Finished: <span className="text-ink/70 font-medium">{formatDate(job.deadline)}</span>
+        <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+          <div className="min-w-0">
+            <h1 className="font-serif text-2xl font-bold text-ink break-words">{job.title}</h1>
+            <p className="text-sm text-ink/40 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>{job.department || 'General'}</span>
+              <span>· Created: <span className="text-ink/70 font-medium">{formatDate(job.timecreated)}</span></span>
+              <span>· Date Finished: <span className="text-ink/70 font-medium">{formatDate(job.deadline)}</span></span>
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl capitalize ${
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl capitalize shrink-0 ${
               job.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-ink/5 text-ink/50'
             }`}>
               {job.status}
@@ -194,20 +333,31 @@ export default function VacancyDetailPage() {
         <div className="pt-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-ink/40 uppercase tracking-wider">Job Description</h3>
-            {!job.jd_analysis?.is_finalized && (
-              !editingDesc ? (
-                <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
-                  Edit Description
+            <div className="flex items-center gap-4">
+              {job.status !== 'archived' && (
+                <button 
+                  onClick={archiveJob}
+                  disabled={archivingJob}
+                  className="text-xs font-bold px-3 py-1 rounded-lg bg-rust/10 text-rust hover:bg-rust/20 transition-colors"
+                >
+                  {archivingJob ? 'Archiving...' : 'Archive Job'}
                 </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
-                  <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
-                    {savingDesc ? 'Saving...' : 'Save'}
+              )}
+              {!job.jd_analysis?.is_finalized && (
+                !editingDesc ? (
+                  <button onClick={() => { setDescInput(job.description); setEditingDesc(true); }} className="text-xs font-bold text-sage hover:underline">
+                    Edit Description
                   </button>
-                </div>
-              )
-            )}
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingDesc(false)} className="text-xs font-bold text-ink/40 hover:underline">Cancel</button>
+                    <button onClick={saveDescription} disabled={savingDesc} className="text-xs font-bold text-sage hover:underline">
+                      {savingDesc ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
           </div>
           
           {editingDesc ? (
@@ -217,13 +367,13 @@ export default function VacancyDetailPage() {
               onChange={(e) => setDescInput(e.target.value)}
             />
           ) : (
-            <div className="text-sm text-ink/70 leading-relaxed max-h-32 overflow-y-auto pr-2" dangerouslySetInnerHTML={{ __html: job.description }} />
+            <ExpandableJD content={job.description} />
           )}
         </div>
       </div>
 
       {/* Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-ink/10">
+      <div className="flex flex-wrap items-center gap-2 border-b border-ink/10">
         <TabButton active={activeTab === 'jd'} onClick={() => setActiveTab('jd')} icon={<FileText size={14} />} label="JD Parser" />
         <TabButton active={activeTab === 'academia'} onClick={() => setActiveTab('academia')} icon={<BookOpen size={14} />} label="Academia Round" />
         <TabButton active={activeTab === 'interviews'} onClick={() => setActiveTab('interviews')} icon={<Users size={14} />} label="Interview Panel" />
@@ -241,19 +391,19 @@ export default function VacancyDetailPage() {
           {activeTab === 'jd' && (
             <div className="space-y-6">
               {/* Quick stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 w-full">
                 <QuickStat icon={<Users size={16} />} label="Applications" value={job.application_count} />
                 <QuickStat icon={<Calendar size={16} />} label="Deadline" value={formatDate(job.deadline)} />
                 <QuickStat icon={<FileText size={16} />} label="Max Limit" value={job.maxlimit} />
-                <QuickStat icon={<Sparkles size={16} />} label="JD Analyzed" value={hasAnalysis ? 'Yes' : 'No'} />
+                <QuickStat icon={<Sparkles size={16} />} label="JD Analyzed" value={isJdAnalyzed ? 'Yes' : 'No'} />
               </div>
 
               {/* JD Parser Configuration */}
-              <div className="bento-card p-6">
-                <h4 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
+              <div className="bento-card p-6 min-w-0">
+                <h4 className="text-sm font-semibold text-ink mb-4 flex flex-wrap items-center justify-between gap-2">
                   <span>Configuration</span>
                   {hasAnalysis && job.jd_analysis ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {job.jd_analysis.is_finalized && (
                         <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
                           ✅ Finalized
@@ -272,7 +422,7 @@ export default function VacancyDetailPage() {
                 <div className="flex flex-col sm:flex-row sm:items-end gap-4">
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2">
-                      No. of applicants to pass JD Parser
+                      {isKekaJob ? 'Score Threshold to pass JD Parser (0-100)' : 'No. of applicants to pass JD Parser'}
                     </label>
                     <input
                       type="number"
@@ -283,11 +433,67 @@ export default function VacancyDetailPage() {
                       className="w-full bg-warm-sand/30 border border-ink/10 rounded-xl px-4 py-2 text-sm text-ink focus:outline-none focus:border-sage/50 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <button 
                       disabled={!!job.jd_analysis?.is_finalized}
                       className="bg-sage text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-sage/90 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
+                        const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+                        if (isKekaJob) {
+                          if (!passCount) return;
+
+                          setApplications(prev => prev.map(app => {
+                            if (app.jd_score === undefined || app.jd_score === null) return app;
+                            return {
+                              ...app,
+                              stage: app.jd_score >= passCount ? 'Shortlisted' : 'Rejected',
+                            };
+                          }));
+
+                          // Build the ingestion set: shortlisted, scored, not yet ingested.
+                          const toIngest = applications
+                            .filter(c =>
+                              typeof c.jd_score === 'number' &&
+                              c.jd_score >= passCount &&
+                              !c.moodleId
+                            )
+                            .map(c => ({
+                              // Only send a real Keka UUID — never send a cuid as a fallback.
+                              kekaUuid: (typeof c.kekaUuid === 'string' && c.kekaUuid.trim() !== '')
+                                ? c.kekaUuid.trim()
+                                : null,
+                              name:     c.name,
+                              email:    c.email,
+                              jdScore:  c.jd_score as number,
+                              jobId:    typeof jobId === 'number' && Number.isInteger(jobId) && jobId > 0
+                                ? jobId
+                                : undefined,
+                            }));
+
+                          if (toIngest.length > 0) {
+                            fetch('/api/keka/ingest-batch', {
+                              method:      'POST',
+                              credentials: 'include',
+                              headers:     { 'Content-Type': 'application/json' },
+                              body:        JSON.stringify({ candidates: toIngest }),
+                            })
+                              .then(res => res.json())
+                              .then(data => {
+                                if (!data.success || !Array.isArray(data.results)) return;
+                                setApplications(prev => prev.map(c => {
+                                  const match = (data.results as Array<{ email: string; status: string; moodleId?: number; candidateId?: string }>)
+                                    .find(r => r.email === c.email && r.moodleId);
+                                  if (!match) return c;
+                                  return { ...c, moodleId: match.moodleId, candidateId: match.candidateId };
+                                }));
+                              })
+                              .catch(e => console.error('[Ingest Batch] Network error:', e));
+                          }
+
+                          alert(`Configuration saved! ${toIngest.length} candidate(s) queued for ingestion.`);
+                          return;
+                        }
+
                         if (!passCount) return;
                         try {
                           await moodleCall('local_aurahr_jdparser_update_config', { jobid: jobId, pass_count: passCount });
@@ -306,6 +512,18 @@ export default function VacancyDetailPage() {
                       disabled={!hasAnalysis || !!job.jd_analysis?.is_finalized}
                       className="bg-purple-600 text-white text-sm font-bold py-2.5 px-6 rounded-xl hover:bg-purple-700 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={async () => {
+                        const isKekaJob = typeof jobId === 'string' && String(jobId).includes('-');
+                        if (isKekaJob) {
+                          if (!passCount) {
+                            alert("Please specify a pass count first and save configuration.");
+                            return;
+                          }
+                          if (confirm(`Are you sure you want to finalize the JD Round and pass the top ${passCount} candidates to the Academia Round?`)) {
+                            alert(`JD Round Finalized for Keka job! Top ${passCount} candidates moved to Academia round.`);
+                          }
+                          return;
+                        }
+
                         if (!passCount) {
                           alert("Please specify a pass count first and save configuration.");
                           return;
@@ -355,9 +573,9 @@ export default function VacancyDetailPage() {
 
               {/* JD Analysis 4-Box */}
               {hasAnalysis && job.jd_analysis && (
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                   <h3 className="font-serif text-lg font-semibold text-ink flex items-center gap-2">
-                    <Sparkles size={18} className="text-sage" />
+                    <Sparkles size={18} className="text-sage shrink-0" />
                     JD Analysis — Skill Breakdown
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -393,7 +611,7 @@ export default function VacancyDetailPage() {
       </AnimatePresence>
 
       {/* Ranked Applications Table (Always visible at the bottom per project plan) */}
-      <RankedApplicationsTable jobId={job.id} refreshTrigger={refreshTrigger} />
+      <RankedApplicationsTable jobId={job.id} refreshTrigger={refreshTrigger} applications={applications} />
     </div>
   );
 }
@@ -471,7 +689,7 @@ function SkillBox({
   );
 }
 
-function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: number, total: number, refreshTrigger?: number }) {
+function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: number | string, total: number, refreshTrigger?: number }) {
   const [data, setData] = useState([
     { range: '0-20%', count: 0 },
     { range: '21-40%', count: 0 },
@@ -482,6 +700,13 @@ function MatchDistributionGraph({ jobId, total, refreshTrigger }: { jobId: numbe
 
   useEffect(() => {
     async function fetchData() {
+      if (!jobId) return;
+
+      const isKekaJob = typeof jobId === 'string' && jobId.includes('-');
+      if (isKekaJob) {
+        return; // Data naturally stays at 0
+      }
+
       try {
         const res = await moodleCall<{ applications: any[] }>('local_aurahr_jobs_list_applications', { jobid: jobId });
         const apps = res.applications || [];

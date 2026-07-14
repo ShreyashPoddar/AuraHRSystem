@@ -1,0 +1,55 @@
+The USER performed the following action:
+Show the contents of file c:\Users\shrey\Desktop\AuraHR\AuraHR\src\app\candidate\test\[id]\page.tsx from lines 819 to 865
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1010
+Total Bytes: 45705
+Showing lines 819 to 865
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+819:                     : 'bg-ink/10 text-ink/30 cursor-not-allowed'}`}
+820:               >
+821:                 {camBrightness === null   ? 'Checking…' :
+822:                  camBrightness > 0        ? 'Confirm Camera ✓' :
+823:                                             'Open Shutter to Continue'}
+824:               </button>
+825:             </div>
+826:           </motion.div>
+827:         </div>
+828:       )}
+829:       {/* ── Microphone Preview Modal ───────────────────────────────────────── */}
+830:       {micStream && micCheck.status === 'checking' && (
+831:         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+832:           <motion.div
+833:             initial={{ scale: 0.9, opacity: 0 }}
+834:             animate={{ scale: 1, opacity: 1 }}
+835:             className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+836:           >
+837:             <h3 className="font-serif text-lg font-bold text-ink mb-1 text-center">Microphone Check</h3>
+838:             <p className="text-sm text-ink/50 text-center mb-6">
+839:               Please say something out loud to test your microphone.
+840:             </p>
+841: 
+842:             {/* Volume indicator */}
+843:             <div className="bg-ink/5 rounded-full h-8 mb-6 overflow-hidden relative flex items-center px-2">
+844:               <div
+845:                 className={`absolute left-0 top-0 bottom-0 transition-all duration-75 ${micPass ? 'bg-emerald-400' : 'bg-blue-400'}`}
+846:                 style={{ width: `${Math.min(100, micVolume * 2)}%` }}
+847:               />
+848:               <div className="z-10 w-full flex justify-between text-[10px] font-bold text-ink/40 uppercase">
+849:                 <span>Quiet</span>
+850:                 <span>Loud</span>
+851:               </div>
+852:             </div>
+853: 
+854:             {/* Status indicator */}
+855:             <div className={`mb-6 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-semibold
+856:               ${micPass ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-amber-50 border border-amber-200 text-amber-700'}`}
+857:             >
+858:               {!micPass && <Loader2 size={16} className="animate-spin shrink-0" />}
+859:               {micPass && <span className="text-lg">✅</span>}
+860:               <span>
+861:                 {micPass ? 'Audio detected! Microphone is working.' : 'Listening for audio...'}
+862:               </span>
+863:             </div>
+864: 
+865:             <div className="flex gap-3">
+

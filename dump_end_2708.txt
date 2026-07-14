@@ -1,0 +1,26 @@
+The USER performed the following action:
+Show the contents of file c:\Users\shrey\Desktop\AuraHR\AuraHR\src\app\candidate\test\[id]\page.tsx from lines 993 to 1010
+File Path: `file:///c:/Users/shrey/Desktop/AuraHR/AuraHR/src/app/candidate/test/%5Bid%5D/page.tsx`
+Total Lines: 1010
+Total Bytes: 45705
+Showing lines 993 to 1010
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+993:               ) : (
+994:                 <button
+995:                   onClick={() => setCurrentQ(prev => Math.min(questions.length - 1, prev + 1))}
+996:                   className="px-8 py-2.5 bg-ink text-cream rounded-xl font-semibold shadow-md hover:bg-ink/90 transition-colors"
+997:                 >
+998:                   Next
+999:                 </button>
+1000:               )}
+1001:             </div>
+1002:           </div>
+1003:         </div>
+1004:       </div>
+1005:     
+1006: 
+1007:   );
+1008: }
+1009: 
+1010: 
+
