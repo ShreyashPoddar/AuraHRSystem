@@ -41,3 +41,25 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# scratch files and transcripts
+/scratch/
+/scratch_transcript.jsonl
+*.txt
+*.log
+
+# scraper session/temporary data
+**/scraper/session_data/
+
+# one-off test/utility scripts
+/puppeteer_test.js
+/test_analyze_app2.php
+/test_browser.js
+/test_display.js
+/test_neev.js
+/check-camera.js
+/check_questions.php
+/download-vad-threads.js
+/download-vad.js
+/old_page.tsx
+**/replace.js

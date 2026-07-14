@@ -100,18 +100,12 @@ class apply extends external_api {
             }
         }
 
-        $github_url   = '';
-        $linkedin_url = '';
-        $leetcode_url = '';
 
         $application = (object)[
             'userid'       => $USER->id,
             'jobid'        => $params['jobid'],
             'stage'        => 'applied',
             'resume_skills'=> $resume_skills,
-            'github_url'   => $github_url,
-            'linkedin_url' => $linkedin_url,
-            'leetcode_url' => $leetcode_url,
             'malpractice'  => 0,
             'jd_score'     => 0.00,
             'timecreated'  => $now,
@@ -119,7 +113,6 @@ class apply extends external_api {
         ];
 
         $application->id = $DB->insert_record('local_aurahr_applications', $application);
-
 
 
         // Automatically trigger JD Scoring synchronously.

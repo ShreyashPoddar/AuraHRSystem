@@ -197,7 +197,6 @@ $services = [
             'local_aurahr_jdparser_update_config',
             'local_aurahr_jobs_upload_photo',
             'local_aurahr_jobs_upload_resume',
-
             'local_aurahr_interview_schedule',
             'local_aurahr_interview_list',
             'local_aurahr_interview_get_details',

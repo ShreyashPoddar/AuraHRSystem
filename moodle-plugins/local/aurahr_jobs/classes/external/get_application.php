@@ -83,8 +83,6 @@ class get_application extends external_api {
             'role'               => $record->role ?? '',
             'education_details'  => $record->education_details ?? '',
             'resume_skills'      => $record->resume_skills ?? '',
-            'github_url'         => $record->github_url ?? '',
-            'leetcode_url'       => $record->leetcode_url ?? '',
             'matched_skills'     => $record->matched_skills ?? '',
             'recruiter_rating'   => (float)($record->recruiter_rating ?? 0),
             'recruiter_feedback' => $record->recruiter_feedback ?? '',
@@ -105,11 +103,6 @@ class get_application extends external_api {
         if (is_numeric($record->overall_score)) {
             $res['overall_score'] = (float)$record->overall_score;
         }
-        if (is_numeric($record->github_score)) {
-            $res['github_score'] = (float)$record->github_score;
-        }
-        if (is_numeric($record->leetcode_score)) {
-            $res['leetcode_score'] = (float)$record->leetcode_score;
         }
 
         return $res;
@@ -140,10 +133,6 @@ class get_application extends external_api {
             'role'               => new external_value(PARAM_TEXT, 'Role'),
             'education_details'  => new external_value(PARAM_RAW, 'Education details'),
             'resume_skills'      => new external_value(PARAM_RAW, 'Resume skills'),
-            'github_score'       => new external_value(PARAM_FLOAT, 'Github score', VALUE_OPTIONAL),
-            'leetcode_score'     => new external_value(PARAM_FLOAT, 'Leetcode score', VALUE_OPTIONAL),
-            'github_url'         => new external_value(PARAM_TEXT, 'Github URL', VALUE_OPTIONAL),
-            'leetcode_url'       => new external_value(PARAM_TEXT, 'Leetcode URL', VALUE_OPTIONAL),
             'matched_skills'     => new external_value(PARAM_RAW, 'Matched skills'),
             'recruiter_rating'   => new external_value(PARAM_FLOAT, 'Recruiter rating'),
             'recruiter_feedback' => new external_value(PARAM_RAW, 'Recruiter feedback'),

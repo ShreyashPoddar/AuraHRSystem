@@ -63,6 +63,7 @@ class finalize_assessment extends external_api {
                 WHERE e.assessmentid = :assessmentid";
         $enrollments = $DB->get_records_sql($sql, ['assessmentid' => $assessment->id]);
 
+<<<<<<< HEAD
         // Sort enrollments: higher scores first, candidates who never submitted last.
         usort($enrollments, function($a, $b) {
             $aHasScore = ($a->score !== null && $a->score !== '');
@@ -73,6 +74,12 @@ class finalize_assessment extends external_api {
             }
             $scoreA = $aHasScore ? (float)$a->score : 0.0;
             $scoreB = $bHasScore ? (float)$b->score : 0.0;
+=======
+        // Sort enrollments: higher scores first, absent/null scores last.
+        usort($enrollments, function($a, $b) {
+            $scoreA = isset($a->score) ? (float)$a->score : 0.0;
+            $scoreB = isset($b->score) ? (float)$b->score : 0.0;
+>>>>>>> main
             if ($scoreA != $scoreB) {
                 return $scoreB <=> $scoreA; // Descending
             }
@@ -92,6 +99,7 @@ class finalize_assessment extends external_api {
 
             $enrol_update = clone $e;
 
+<<<<<<< HEAD
             // Sync academia_score to the application table only if the candidate submitted.
             // Candidates who never submitted keep academia_score = NULL so the ranked table
             // shows '—' rather than a misleading 0. (Moodle's REST layer also strips 0.0
@@ -106,21 +114,38 @@ class finalize_assessment extends external_api {
                 // Promote to interview if currently in assessment or legacy stages
                 if (in_array($app->stage, ['academia', 'screened', 'Assessment Invited', 'Assessment In Progress', 'Assessment Completed'])) {
                     $app->stage = 'Assessment Cleared';
+=======
+            if ($index < $params['pass_count']) {
+                // Promote to interview if currently in academia or screened
+                if ($app->stage === 'academia' || $app->stage === 'screened') {
+                    $app->stage = 'interview';
+                    $app->timemodified = $now;
+                    $DB->update_record('local_aurahr_applications', $app);
+>>>>>>> main
                 }
                 $enrol_update->passed = 1;
                 $enrol_update->status = 'completed';
                 $DB->update_record('local_aurahr_assess_enrol', $enrol_update);
                 $passed_count++;
             } else {
+<<<<<<< HEAD
                 // Reject if currently in assessment or legacy stages
                 if (in_array($app->stage, ['academia', 'screened', 'Assessment Invited', 'Assessment In Progress', 'Assessment Completed'])) {
                     $app->stage = 'Rejected';
+=======
+                // Reject if currently in academia or screened
+                if ($app->stage === 'academia' || $app->stage === 'screened') {
+                    $app->stage = 'rejected';
+                    $app->timemodified = $now;
+                    $DB->update_record('local_aurahr_applications', $app);
+>>>>>>> main
                 }
                 $enrol_update->passed = 0;
                 $enrol_update->status = 'completed';
                 $DB->update_record('local_aurahr_assess_enrol', $enrol_update);
                 $rejected_count++;
             }
+<<<<<<< HEAD
 
             // Persist all application changes (stage + score) in one update.
             $app->timemodified = $now;
@@ -137,6 +162,11 @@ class finalize_assessment extends external_api {
             }
         }
 
+=======
+            $index++;
+        }
+
+>>>>>>> main
         return [
             'success'        => true,
             'passed_count'   => $passed_count,

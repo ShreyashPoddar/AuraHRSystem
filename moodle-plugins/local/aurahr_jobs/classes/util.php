@@ -25,7 +25,6 @@ class util {
                 'score' => !empty($app->jd_score) ? (float)$app->jd_score : null,
                 'weight' => 0.15
             ],
-
             'academia' => [
                 'score' => !empty($app->academia_score) ? (float)$app->academia_score : null,
                 'weight' => 0.30
@@ -35,7 +34,6 @@ class util {
                 'weight' => 0.40
             ]
         ];
-
 
 
         $total_weight_available = 0.0;

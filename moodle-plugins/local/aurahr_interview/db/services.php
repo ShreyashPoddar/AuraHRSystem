@@ -47,7 +47,6 @@ $functions = [
         'classname' => 'local_aurahr_interview\external\get_proctor_report',
         'description' => 'Get proctoring report for a session',
         'type' => 'read', 'ajax' => true,
-        'capabilities' => 'local/aurahr_interview:viewproctor',
     ],
 ];
 

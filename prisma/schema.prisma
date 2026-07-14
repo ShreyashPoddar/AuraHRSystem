@@ -44,10 +44,6 @@ model Candidate {
   authenticity   Int?
   status         String   @default("APPLIED")
 
-  // External Footprints
-  githubUrl      String?
-  linkedInUrl    String?
-  kaggleUrl      String?
 
   // Keka ATS ingestion — stores the originating Keka candidate UUID so we can
   // detect duplicates and correlate back to the source system.

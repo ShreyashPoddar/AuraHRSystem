@@ -89,12 +89,16 @@ class list_applications extends external_api {
         $total = $DB->count_records_sql($countsql, $sqlparams);
 
         // Fetch records.
+<<<<<<< HEAD
         // NOTE: We use a subquery to pick only ONE assessment per job (the most relevant one,
         // prioritised as: active > scheduled > completed > draft). Without this, a job with
         // multiple assessments (e.g. a completed + a draft) would produce N duplicate rows
         // per application, with get_records_sql only keeping the last occurrence per id.
         $sql = "SELECT a.*, u.firstname, u.lastname, u.email, u.picture, u.imagealt,
                        u.idnumber AS resume_url,
+=======
+        $sql = "SELECT a.*, u.firstname, u.lastname, u.email, u.picture, u.imagealt,
+>>>>>>> main
                        j.title AS job_title, j.department AS job_department,
                        COALESCE(jd.is_finalized, 0) as job_is_finalized,
                        asmt.id as assessment_id,
@@ -106,6 +110,7 @@ class list_applications extends external_api {
                 JOIN {user} u ON u.id = a.userid
                 JOIN {local_aurahr_jobs} j ON j.id = a.jobid
                 LEFT JOIN {local_aurahr_jd_analysis} jd ON jd.jobid = a.jobid
+<<<<<<< HEAD
                 LEFT JOIN {local_aurahr_assessments} asmt ON asmt.id = (
                     SELECT sub.id
                     FROM {local_aurahr_assessments} sub
@@ -120,6 +125,9 @@ class list_applications extends external_api {
                         sub.id DESC
                     LIMIT 1
                 )
+=======
+                LEFT JOIN {local_aurahr_assessments} asmt ON asmt.jobid = a.jobid
+>>>>>>> main
                 $where
                 ORDER BY $sortfield $sortdir";
 
@@ -141,7 +149,7 @@ class list_applications extends external_api {
                 'email'             => $r->email,
                 'stage'             => $r->stage,
                 'malpractice'       => (int)$r->malpractice,
-                'recruiter_rating'  => (float)($r->recruiter_rating ?? 0),
+                'recruiter_rating'  => (float)$r->recruiter_rating ?? 0,
                 'timecreated'       => (int)$r->timecreated,
                 'timemodified'      => (int)$r->timemodified,
                 'job_is_finalized'  => (int)($r->job_is_finalized ?? 0),
@@ -164,13 +172,7 @@ class list_applications extends external_api {
             if (is_numeric($r->overall_score)) {
                 $item['overall_score'] = (float)$r->overall_score;
             }
-            if (is_numeric($r->github_score)) {
-                $item['github_score'] = (float)$r->github_score;
-            }
-            if (is_numeric($r->leetcode_score)) {
-                $item['leetcode_score'] = (float)$r->leetcode_score;
-            }
-
+            
             $item['resumeUrl'] = !empty($r->resume_url) ? $r->resume_url : null;
 
             $applications[] = $item;
@@ -197,8 +199,6 @@ class list_applications extends external_api {
                     'academia_score'    => new external_value(PARAM_FLOAT, 'Academia round score', VALUE_OPTIONAL),
                     'interview_score'   => new external_value(PARAM_FLOAT, 'Interview score', VALUE_OPTIONAL),
                     'overall_score'     => new external_value(PARAM_FLOAT, 'Overall score', VALUE_OPTIONAL),
-                    'github_score'      => new external_value(PARAM_FLOAT, 'GitHub score', VALUE_OPTIONAL),
-                    'leetcode_score'    => new external_value(PARAM_FLOAT, 'LeetCode score', VALUE_OPTIONAL),
                     'malpractice'       => new external_value(PARAM_INT, 'Malpractice flag'),
                     'recruiter_rating'  => new external_value(PARAM_FLOAT, 'Recruiter rating'),
                     'timecreated'       => new external_value(PARAM_INT, 'Applied date'),

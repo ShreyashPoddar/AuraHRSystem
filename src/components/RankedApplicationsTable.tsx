@@ -816,7 +816,6 @@ function CandidateDetailPopup({
 function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null | undefined, skills?: string }) {
   if (score === null && !skills) return null;
   const validScore = (score !== null && score !== undefined) ? Math.min(100, Math.max(0, score)) : 0;
-
   return (
     <div className="p-3.5 bg-white border border-ink/5 rounded-xl shadow-sm flex flex-col gap-2">
       <div className="flex items-center justify-between">
