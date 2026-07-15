@@ -61,6 +61,9 @@ export async function getKekaAccessToken(): Promise<string> {
     tokenExpiry = Date.now() + expiresInMs;
     console.log('[Keka Auth] Token cached, valid for', Math.round(expiresInMs / 1000), 's');
 
+    if (!cachedToken) {
+      throw new Error('[Keka Auth] No valid cached token available');
+    }
     return cachedToken;
   } catch (error) {
     // Invalidate cache on error so the next call retries the auth

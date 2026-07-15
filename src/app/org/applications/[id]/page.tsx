@@ -225,7 +225,7 @@ export default function ApplicationDetailPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawId, isKekaJob, jobId, stageFilter, search, sortField, sortDir]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
@@ -395,8 +395,8 @@ export default function ApplicationDetailPage() {
               <span><strong className="text-ink/70">Finished (Deadline):</strong> {formatDate(job?.deadline || 0)}</span>
             </div>
           </div>
-          <button 
-            onClick={() => setEditingDesc(!editingDesc)} 
+          <button
+            onClick={() => setEditingDesc(!editingDesc)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ink/5 hover:bg-ink/10 text-ink/60 hover:text-ink text-xs font-semibold transition-colors"
           >
             <Pencil size={14} /> {editingDesc ? 'Cancel Edit' : 'Edit Description'}
@@ -406,13 +406,13 @@ export default function ApplicationDetailPage() {
         <div className="mb-6">
           {editingDesc ? (
             <div className="space-y-3">
-              <textarea 
-                value={descText} 
-                onChange={e => setDescText(e.target.value)} 
+              <textarea
+                value={descText}
+                onChange={e => setDescText(e.target.value)}
                 className="w-full bg-cream border border-ink/10 rounded-xl p-3 text-sm focus:outline-none focus:border-sage/50 min-h-[100px]"
               />
-              <button 
-                onClick={handleSaveDesc} 
+              <button
+                onClick={handleSaveDesc}
                 disabled={savingDesc}
                 className="flex items-center gap-2 bg-sage text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-sage/90 transition-colors"
               >
@@ -438,9 +438,8 @@ export default function ApplicationDetailPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setStageFilter('')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-              stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-            }`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${stageFilter === '' ? 'bg-ink text-cream border-ink' : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+              }`}
           >
             All ({total})
           </button>
@@ -448,11 +447,10 @@ export default function ApplicationDetailPage() {
             <button
               key={s.stage}
               onClick={() => setStageFilter(stageFilter === s.stage ? '' : s.stage)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border ${
-                stageFilter === s.stage
-                  ? getStageBadgeClass(s.stage)
-                  : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all border ${stageFilter === s.stage
+                ? getStageBadgeClass(s.stage)
+                : 'bg-ink/5 text-ink/50 border-ink/10 hover:border-ink/20'
+                }`}
             >
               {getStageLabel(s.stage)} ({s.count})
             </button>
@@ -479,9 +477,8 @@ export default function ApplicationDetailPage() {
             <button
               key={f}
               onClick={() => toggleSort(f)}
-              className={`px-2 py-1 rounded-lg transition-colors ${
-                sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
-              }`}
+              className={`px-2 py-1 rounded-lg transition-colors ${sortField === f ? 'bg-gold/15 text-gold font-semibold' : 'hover:bg-ink/5'
+                }`}
             >
               {f.replace('_', ' ').replace('timecreated', 'date')}
               {sortField === f && (
@@ -524,13 +521,12 @@ export default function ApplicationDetailPage() {
 
       {/* Keka status bar */}
       {kekaStatus && (
-        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium border ${
-          kekaStatus.startsWith('Error')
-            ? 'bg-rust/5 text-rust border-rust/20'
-            : kekaStatus.startsWith('Keka sync complete')
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium border ${kekaStatus.startsWith('Error')
+          ? 'bg-rust/5 text-rust border-rust/20'
+          : kekaStatus.startsWith('Keka sync complete')
             ? 'bg-emerald-500/8 text-emerald-700 border-emerald-500/20'
             : 'bg-teal-500/8 text-teal-700 border-teal-500/20'
-        }`}>
+          }`}>
           {kekaFetching && <Loader2 size={12} className="animate-spin shrink-0" />}
           <span>{kekaStatus}</span>
           {!kekaFetching && (
@@ -582,7 +578,7 @@ export default function ApplicationDetailPage() {
                     <span className="text-xs font-mono text-ink/40 font-medium">{idx + 1}</span>
                   </td>
                   <td className="px-5 py-4">
-                    <div 
+                    <div
                       className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => openDetail(app)}
                     >
@@ -697,13 +693,13 @@ function CandidateDetailPopup({
 
   // Flatten Metric Data Mapping
   const isKekaJob = app && typeof app.id === 'string' && String(app.id).includes('-');
-  const jdScore = app?.jdScore ?? app?.details?.jdScore ?? app?.jd_score ?? 0;
-  const overallScore = app?.overallScore ?? app?.details?.overallScore ?? app?.overall_score ?? 0;
-  const isKekaEvaluated = isKekaJob && app?.jdScore !== undefined;
+  const jdScore = app?.jd_score ?? 0;
+  const overallScore = app?.overall_score ?? 0;
+  const isKekaEvaluated = isKekaJob && app?.jd_score !== undefined;
 
   async function moveStage(newStage: string) {
     if (!app) return;
-    
+
     if (isKekaJob) {
       onStageUpdate(newStage, String(app.id));
       setShowDropdown(false);
@@ -819,11 +815,10 @@ function CandidateDetailPopup({
                                 <button
                                   key={s}
                                   onClick={() => moveStage(s)}
-                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${
-                                    STAGE_META[s]?.terminal
-                                      ? 'text-red-600 hover:bg-red-50'
-                                      : 'text-zinc-600 hover:bg-zinc-50'
-                                  }`}
+                                  className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors flex items-center gap-2 ${STAGE_META[s]?.terminal
+                                    ? 'text-red-600 hover:bg-red-50'
+                                    : 'text-zinc-600 hover:bg-zinc-50'
+                                    }`}
                                 >
                                   {s}
                                 </button>
@@ -955,7 +950,7 @@ function CandidateDetailPopup({
             {/* Join Interview Button */}
             {app.stage === 'interview' && (
               <div className="pt-2 border-t border-ink/10">
-                <button 
+                <button
                   onClick={() => window.location.href = `/org/interview/${app.id}`}
                   className="w-full py-3 bg-gold text-white rounded-xl text-sm font-bold shadow-md hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
                 >
@@ -973,7 +968,7 @@ function CandidateDetailPopup({
 function PlatformScoreCard({ icon, label, score, skills }: { icon: React.ReactNode, label: string, score: number | null | undefined, skills?: string }) {
   if (score === null && !skills) return null;
   const validScore = (score !== null && score !== undefined) ? Math.min(100, Math.max(0, score)) : 0;
-  
+
   return (
     <div className="p-3.5 bg-white border border-ink/5 rounded-xl shadow-sm flex flex-col gap-2">
       <div className="flex items-center justify-between">
