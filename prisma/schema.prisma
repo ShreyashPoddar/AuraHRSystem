@@ -44,7 +44,6 @@ model Candidate {
   authenticity   Int?
   status         String   @default("APPLIED")
 
-
   // Keka ATS ingestion — stores the originating Keka candidate UUID so we can
   // detect duplicates and correlate back to the source system.
   kekaUuid       String?  @unique
@@ -58,6 +57,8 @@ model Candidate {
   interviews       Interview[]
   proctoringLogs   ProctoringLog[]
   activationTokens ActivationToken[]
+  testInviteTokens TestInviteToken[]
+  contactLogs      ContactLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -110,3 +111,41 @@ model ActivationToken {
   createdAt   DateTime  @default(now())
 }
 
+// Pre-made email templates used in the "Contact Candidate" feature.
+// category examples: "interview", "test-invite", "rejection", "general".
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  body        String   @db.Text
+  category    String   @default("general")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Single-use, expiring token that lets a candidate access their Academia
+// round test link within a 24-48h validity window. Same pattern as
+// ActivationToken above, just scoped to a specific testId.
+model TestInviteToken {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  testId      String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// Audit log of every email sent to a candidate via the Contact Candidate
+// feature — records what was sent, using which template (if any), and by whom.
+model ContactLog {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  templateId  String?
+  subject     String
+  body        String    @db.Text
+  sentBy      String
+  sentAt      DateTime  @default(now())
+}
