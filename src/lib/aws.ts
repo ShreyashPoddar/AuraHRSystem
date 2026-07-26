@@ -63,26 +63,33 @@ export async function sendInterviewInvite(to: string, candidateName: string, rol
     },
     Source: sender,
   });
+  // ── Dry-run safety check ──────────────────────────────
+  if (process.env.EMAIL_DRY_RUN === "true") {
+    console.log("[DRY RUN] Email NOT sent. Would have gone to:", to);
+    console.log("[DRY RUN] Subject:", `Interview Invitation: ${role} at AuraHR`);
+    return { dryRun: true, wouldSendTo: to };
+  }
+
   return await sesClient.send(command);
 }
 
 export async function parseResumeWithTextract(fileBuffer: Buffer, fileName: string = "Resume.pdf") {
   // Check if we should use mock logic
-  const isMock = !process.env.AWS_ACCESS_KEY_ID || 
-                 process.env.AWS_ACCESS_KEY_ID.includes("YOUR_") ||
-                 !process.env.AWS_SECRET_ACCESS_KEY ||
-                 process.env.AWS_SECRET_ACCESS_KEY.includes("YOUR_");
+  const isMock = !process.env.AWS_ACCESS_KEY_ID ||
+    process.env.AWS_ACCESS_KEY_ID.includes("YOUR_") ||
+    !process.env.AWS_SECRET_ACCESS_KEY ||
+    process.env.AWS_SECRET_ACCESS_KEY.includes("YOUR_");
 
   if (isMock) {
     console.warn("AWS Credentials missing. Using Generative Mock for Resume OCR.");
-    
+
     // Extract info from filename
     let cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
     let email = "recruiter@example.com";
     let phone = "6351525923"; // Default to user's provided number for better demo
 
     const lowerFile = fileName.toLowerCase();
-    
+
     if (lowerFile.includes("riyan") || lowerFile.includes("kothari")) {
       cleanName = "Riyan Kothari";
       email = "riyanrkothari@gmail.com";
@@ -91,7 +98,7 @@ export async function parseResumeWithTextract(fileBuffer: Buffer, fileName: stri
       // General extraction
       const foundPhone = fileName.match(/\d{10}/);
       if (foundPhone) phone = foundPhone[0];
-      
+
       const emailPrefix = cleanName.toLowerCase().replace(/\s+/g, ".");
       email = `${emailPrefix}@example.com`;
     }
