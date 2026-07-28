@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Users, Calendar, Loader2, Sparkles, ChevronRight,
-  BarChart3, CheckCircle, XCircle, AlertTriangle, BookOpen, Clock
+  BarChart3, CheckCircle, XCircle, AlertTriangle, BookOpen, Clock, Upload, X
 } from 'lucide-react';
 import { moodleCall } from '@/lib/moodle';
 import AcademiaRoundTab from '@/components/AcademiaRoundTab';
@@ -76,6 +76,12 @@ export default function VacancyDetailPage() {
   const [savingDesc, setSavingDesc] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [archivingJob, setArchivingJob] = useState(false);
+
+  // ── Manual Resume Upload modal state ─────────────────────────────────────
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({ firstname: '', lastname: '', email: '' });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const loadJob = useCallback(async () => {
     if (!rawId) return;
@@ -414,9 +420,18 @@ export default function VacancyDetailPage() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-ink/40 bg-ink/5 px-2 py-1 rounded">
-                      Run JD Parser for AI Suggestion
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-ink/40 bg-ink/5 px-2 py-1 rounded">
+                        Run JD Parser for AI Suggestion
+                      </span>
+                      <button
+                        onClick={() => setShowUploadModal(true)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-xl bg-ink/5 text-ink/60 hover:bg-ink/10 hover:text-ink transition-colors"
+                      >
+                        <Upload size={13} />
+                        Upload Resume Manually
+                      </button>
+                    </div>
                   )}
                 </h4>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -612,6 +627,153 @@ export default function VacancyDetailPage() {
 
       {/* Ranked Applications Table (Always visible at the bottom per project plan) */}
       <RankedApplicationsTable jobId={job.id} refreshTrigger={refreshTrigger} applications={applications} />
+
+      {/* ── Manual Resume Upload Modal ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-ink/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={() => !uploading && setShowUploadModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="bg-cream rounded-3xl shadow-2xl w-full max-w-lg border border-ink/10 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-ink/8">
+                <h3 className="font-serif text-xl font-bold text-ink flex items-center gap-2">
+                  <Upload size={18} className="text-sage" />
+                  Upload Resume Manually
+                </h3>
+                <button
+                  onClick={() => !uploading && setShowUploadModal(false)}
+                  className="p-2 rounded-xl hover:bg-ink/5 text-ink/40 transition-colors disabled:opacity-40"
+                  disabled={uploading}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!uploadFile) { alert('Please select a resume file.'); return; }
+                  setUploading(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append('file',           uploadFile);
+                    fd.append('firstname',      uploadForm.firstname);
+                    fd.append('lastname',       uploadForm.lastname);
+                    fd.append('email',          uploadForm.email);
+                    fd.append('jobId',          String(typeof jobId === 'number' ? jobId : Number(rawId)));
+                    fd.append('jobDescription', job.description || '');
+
+                    // Do NOT set Content-Type — browser must set the multipart boundary
+                    const res = await fetch('/api/candidates/manual-upload', {
+                      method:      'POST',
+                      credentials: 'include',
+                      body:        fd,
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok || !data.success) {
+                      throw new Error(data.error || 'Upload failed.');
+                    }
+
+                    setShowUploadModal(false);
+                    setUploadForm({ firstname: '', lastname: '', email: '' });
+                    setUploadFile(null);
+                    setRefreshTrigger(prev => prev + 1);
+                    alert(`Resume uploaded successfully! JD score: ${data.jdScore ?? 'N/A'}. The candidate has been added to the pipeline.`);
+                  } catch (err: any) {
+                    alert(`Error: ${err.message}`);
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+                className="p-6 space-y-4"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-ink/50 uppercase tracking-wider">First Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={uploadForm.firstname}
+                      onChange={(e) => setUploadForm(p => ({ ...p, firstname: e.target.value }))}
+                      placeholder="Jane"
+                      className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-ink/50 uppercase tracking-wider">Last Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={uploadForm.lastname}
+                      onChange={(e) => setUploadForm(p => ({ ...p, lastname: e.target.value }))}
+                      placeholder="Doe"
+                      className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-ink/50 uppercase tracking-wider">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={uploadForm.email}
+                    onChange={(e) => setUploadForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="jane.doe@example.com"
+                    className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-ink/50 uppercase tracking-wider">Resume File</label>
+                  <input
+                    type="file"
+                    required
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-ink/70 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-ink/5 file:text-ink/60 hover:file:bg-ink/10 transition-all cursor-pointer"
+                  />
+                  <p className="text-[11px] text-ink/30">PDF, DOC, or DOCX — max 10 MB</p>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => !uploading && setShowUploadModal(false)}
+                    disabled={uploading}
+                    className="px-5 py-2 rounded-xl text-sm font-bold text-ink/60 hover:text-ink hover:bg-ink/5 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploading}
+                    className="flex items-center gap-2 px-5 py-2 bg-sage text-white rounded-xl text-sm font-bold hover:bg-sage/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                    {uploading ? 'Uploading...' : 'Upload & Ingest'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
