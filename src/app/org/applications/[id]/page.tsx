@@ -83,6 +83,14 @@ interface ApplicationDetail {
   timemodified: number;
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+}
+
 // ── Stage helpers (sourced from central pipeline module) ────────────
 
 function getStageBadgeClass(stage: string): string {
@@ -691,6 +699,64 @@ function CandidateDetailPopup({
   const [updating, setUpdating] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // ── Contact modal state ───────────────────────────────────────────
+  const [showContact, setShowContact] = useState(false);
+  const [contactTemplates, setContactTemplates] = useState<EmailTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [contactSubject, setContactSubject] = useState('');
+  const [contactBody, setContactBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function openContactModal() {
+    setShowContact(true);
+    try {
+      const res = await fetch('/api/candidates/contact');
+      const data = await res.json();
+      setContactTemplates(data.templates || []);
+    } catch (err) {
+      console.error('Failed to fetch email templates:', err);
+    }
+  }
+
+  function applyTemplate(templateId: string, templates: EmailTemplate[]) {
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl || !app) return;
+    const name = `${app.firstname} ${app.lastname}`;
+    const jobTitle = (app as any).job_title || (app as any).role || '';
+    setContactSubject(tpl.subject.replace(/\{\{candidateName\}\}/g, name).replace(/\{\{jobTitle\}\}/g, jobTitle));
+    setContactBody(tpl.body.replace(/\{\{candidateName\}\}/g, name).replace(/\{\{jobTitle\}\}/g, jobTitle));
+  }
+
+  async function handleSendEmail() {
+    if (!app) return;
+    setSending(true);
+    try {
+      const res = await fetch('/api/candidates/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateId: app.id,
+          candidateEmail: app.email,
+          templateId: selectedTemplateId || null,
+          subject: contactSubject,
+          htmlBody: contactBody,
+          sentBy: 'unknown',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email.');
+      setShowContact(false);
+      setContactSubject('');
+      setContactBody('');
+      setSelectedTemplateId('');
+      alert(`Email sent successfully to ${app.email}${data.dryRun ? ' (dry run — not actually delivered)' : ''}.`);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  }
+
   // Flatten Metric Data Mapping
   const isKekaJob = app && typeof app.id === 'string' && String(app.id).includes('-');
   const jdScore = app?.jd_score ?? 0;
@@ -766,6 +832,14 @@ function CandidateDetailPopup({
 
               {/* Actions Dropdown */}
               <div className="relative shrink-0 flex items-start gap-2">
+                {/* Contact button */}
+                <button
+                  onClick={openContactModal}
+                  className="flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-xl text-sm font-semibold hover:bg-ink/90 transition-colors shadow-sm"
+                >
+                  <Mail size={16} />
+                  Contact
+                </button>
                 <div className="relative">
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
@@ -961,6 +1035,114 @@ function CandidateDetailPopup({
           </div>
         ) : null}
       </motion.div>
+
+      {/* ── Contact Candidate Modal ──────────────────────────────────── */}
+      <AnimatePresence>
+        {showContact && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-ink/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowContact(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="bg-cream rounded-3xl shadow-2xl w-full max-w-2xl border border-ink/10 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-ink/8">
+                <h3 className="font-serif text-xl font-bold text-ink">
+                  Contact {app?.firstname} {app?.lastname}
+                </h3>
+                <button
+                  onClick={() => setShowContact(false)}
+                  className="p-2 rounded-xl hover:bg-ink/5 text-ink/40 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <div className="p-6 space-y-5">
+                {/* Template selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">
+                    Email Template
+                  </label>
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedTemplateId(id);
+                      if (id) applyTemplate(id, contactTemplates);
+                    }}
+                    className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all"
+                  >
+                    <option value="">— Select a template (optional) —</option>
+                    {contactTemplates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subject field */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={contactSubject}
+                    onChange={(e) => setContactSubject(e.target.value)}
+                    placeholder="Enter email subject..."
+                    className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all"
+                  />
+                </div>
+
+                {/* Body field */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-ink/40 uppercase tracking-wider">
+                    Body (HTML)
+                  </label>
+                  <textarea
+                    value={contactBody}
+                    onChange={(e) => setContactBody(e.target.value)}
+                    placeholder="Enter email body..."
+                    rows={10}
+                    className="w-full bg-white border border-ink/10 rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink/25 focus:outline-none focus:ring-2 focus:ring-sage/30 transition-all resize-y font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Modal footer */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-ink/8 bg-warm-sand/20">
+                <button
+                  onClick={() => setShowContact(false)}
+                  disabled={sending}
+                  className="px-5 py-2 rounded-xl text-sm font-bold text-ink/60 hover:text-ink hover:bg-ink/5 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={sending || !contactSubject.trim() || !contactBody.trim()}
+                  className="flex items-center gap-2 px-5 py-2 bg-sage text-white rounded-xl text-sm font-bold hover:bg-sage/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sending ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
+                  {sending ? 'Sending...' : 'Send Email'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

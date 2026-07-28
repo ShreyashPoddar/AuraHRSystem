@@ -103,7 +103,6 @@ class get_application extends external_api {
         if (is_numeric($record->overall_score)) {
             $res['overall_score'] = (float)$record->overall_score;
         }
-        }
 
         return $res;
     }
