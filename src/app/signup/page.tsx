@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Building2, User, Eye, EyeOff, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { UserPlus, Building2, Eye, EyeOff, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import { moodleSignup } from '@/lib/moodle';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,7 +13,7 @@ type Role = 'organization' | 'candidate';
 export default function SignupPage() {
   const router = useRouter();
   const { isAuthenticated, userRole, isLoading } = useAuth();
-  const [role, setRole] = useState<Role>('candidate');
+  const [role] = useState<Role>('organization');
   const [formData, setFormData] = useState({
     firstname: '',
     lastname: '',
@@ -125,24 +125,6 @@ export default function SignupPage() {
 
           <h2 className="text-center font-sans text-lg text-ink/60 mb-6">Create your account</h2>
 
-          {/* Role tabs */}
-          <div className="flex bg-warm-sand/60 rounded-2xl p-1.5 mb-6">
-            {(['candidate', 'organization'] as Role[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  role === r
-                    ? 'bg-cream shadow-sm text-ink'
-                    : 'text-ink/40 hover:text-ink/60'
-                }`}
-              >
-                {r === 'candidate' ? <User size={16} /> : <Building2 size={16} />}
-                <span className="capitalize">{r}</span>
-              </button>
-            ))}
-          </div>
-
           {/* Error */}
           {error && (
             <motion.div
@@ -155,26 +137,17 @@ export default function SignupPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <AnimatePresence mode="wait">
-              {role === 'organization' && (
-                <motion.div
-                  key="company"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">Company Name</label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) => updateField('company', e.target.value)}
-                    placeholder="Acme Corp"
-                    required={role === 'organization'}
-                    className="w-full px-4 py-3 bg-warm-sand/60 border border-ink/8 rounded-2xl text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-gold/40 transition-all text-sm"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div>
+              <label className="block text-sm font-medium text-ink/60 mb-1.5 ml-1">Company Name</label>
+              <input
+                type="text"
+                value={formData.company}
+                onChange={(e) => updateField('company', e.target.value)}
+                placeholder="Acme Corp"
+                required
+                className="w-full px-4 py-3 bg-warm-sand/60 border border-ink/8 rounded-2xl text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-gold/40 transition-all text-sm"
+              />
+            </div>
 
             {/* Name fields */}
             <div className="grid grid-cols-2 gap-3">
