@@ -420,18 +420,9 @@ export default function VacancyDetailPage() {
                       </span>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-ink/40 bg-ink/5 px-2 py-1 rounded">
-                        Run JD Parser for AI Suggestion
-                      </span>
-                      <button
-                        onClick={() => setShowUploadModal(true)}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-xl bg-ink/5 text-ink/60 hover:bg-ink/10 hover:text-ink transition-colors"
-                      >
-                        <Upload size={13} />
-                        Upload Resume Manually
-                      </button>
-                    </div>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-ink/40 bg-ink/5 px-2 py-1 rounded">
+                      Run JD Parser for AI Suggestion
+                    </span>
                   )}
                 </h4>
                 <div className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -563,28 +554,51 @@ export default function VacancyDetailPage() {
                 </div>
               </div>
 
-              {/* JD Parser Action Card */}
-              <motion.button
-                whileHover={job.jd_analysis?.is_finalized ? {} : { scale: 1.01, y: -2 }}
-                whileTap={job.jd_analysis?.is_finalized ? {} : { scale: 0.99 }}
-                onClick={runJDParser}
-                disabled={parsing || !!job.jd_analysis?.is_finalized}
-                className="w-full sm:w-80 bento-card p-5 text-left hover:shadow-lg hover:border-sage/30 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 rounded-xl bg-sage/10 text-sage">
-                    {parsing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {/* JD Parser Action Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Run JD Parser card */}
+                <motion.button
+                  whileHover={job.jd_analysis?.is_finalized ? {} : { scale: 1.01, y: -2 }}
+                  whileTap={job.jd_analysis?.is_finalized ? {} : { scale: 0.99 }}
+                  onClick={runJDParser}
+                  disabled={parsing || !!job.jd_analysis?.is_finalized}
+                  className="w-full bento-card p-5 text-left hover:shadow-lg hover:border-sage/30 transition-all group disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-xl bg-sage/10 text-sage">
+                      {parsing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                    </div>
+                    <span className="text-sm font-semibold text-ink group-hover:text-sage transition-colors">
+                      {parsing ? 'Analyzing...' : hasAnalysis ? 'Re-run JD Parser' : 'Run JD Parser'}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-ink group-hover:text-sage transition-colors">
-                    {parsing ? 'Analyzing...' : hasAnalysis ? 'Re-run JD Parser' : 'Run JD Parser'}
-                  </span>
-                </div>
-                <p className="text-xs text-ink/40">
-                  {job.jd_analysis?.is_finalized 
-                    ? 'JD Round has been finalized. You cannot re-run the parser.' 
-                    : 'AI-powered analysis of the job description to extract skill requirements.'}
-                </p>
-              </motion.button>
+                  <p className="text-xs text-ink/40">
+                    {job.jd_analysis?.is_finalized
+                      ? 'JD Round has been finalized. You cannot re-run the parser.'
+                      : 'AI-powered analysis of the job description to extract skill requirements.'}
+                  </p>
+                </motion.button>
+
+                {/* Upload Resume Manually card */}
+                <motion.button
+                  whileHover={{ scale: 1.01, y: -2 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setShowUploadModal(true)}
+                  className="w-full bento-card p-5 text-left hover:shadow-lg hover:border-blue-300/50 transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
+                      <Upload size={18} />
+                    </div>
+                    <span className="text-sm font-semibold text-ink group-hover:text-blue-600 transition-colors">
+                      Upload Resume Manually
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink/40">
+                    Add a candidate directly by uploading their resume, bypassing Keka.
+                  </p>
+                </motion.button>
+              </div>
 
               {/* JD Analysis 4-Box */}
               {hasAnalysis && job.jd_analysis && (
