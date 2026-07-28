@@ -191,46 +191,33 @@ export async function moodleAdminGetUserByEmail(
  * @throws  Error if Moodle rejects the call or returns an exception.
  */
 export async function moodleAdminApplyToJob(
-  jobId: number
+  jobId: number,
+  userId: number  // NEW — required now, not optional
 ): Promise<{ id: number }> {
   const { moodleUrl, adminToken } = getEnv();
 
-  console.log(
-    `[moodle-server] local_aurahr_jobs_apply — token: ${adminToken.substring(0, 6)}... jobid: ${jobId}`
-  );
-
-  // Scalar params only — URLSearchParams is safe here.
   const qs = new URLSearchParams({
     wstoken: adminToken,
     wsfunction: 'local_aurahr_jobs_apply',
     moodlewsrestformat: 'json',
     jobid: String(jobId),
+    userid: String(userId),  // NEW
   });
 
   const url = `${moodleUrl}/webservice/rest/server.php?${qs.toString()}`;
-
   const res = await fetch(url, { method: 'GET', cache: 'no-store' });
 
   if (!res.ok) {
-    throw new Error(
-      `local_aurahr_jobs_apply: HTTP ${res.status} ${res.statusText}`
-    );
+    throw new Error(`local_aurahr_jobs_apply: HTTP ${res.status} ${res.statusText}`);
   }
 
   const data: unknown = await res.json();
-
   if (isMoodleException(data)) {
-    throw new Error(
-      `local_aurahr_jobs_apply: [${(data as MoodleException).errorcode}] ${(data as MoodleException).message}`
-    );
+    throw new Error(`local_aurahr_jobs_apply: [${(data as any).errorcode}] ${(data as any).message}`);
   }
-
   const result = data as { id: number };
   if (typeof result.id !== 'number') {
-    throw new Error(
-      `local_aurahr_jobs_apply: Unexpected response shape — ${JSON.stringify(data).substring(0, 200)}`
-    );
+    throw new Error(`local_aurahr_jobs_apply: Unexpected response shape — ${JSON.stringify(data).substring(0, 200)}`);
   }
-
   return { id: result.id };
 }

@@ -7,24 +7,36 @@ use core_external\external_single_structure;
 use core_external\external_value;
 
 /**
- * Apply to a job posting as the current (candidate) user.
- * Checks for duplicate applications and max-limit enforcement.
+ * Apply to a job posting as the current (candidate) user, OR — if the caller
+ * has admin capability and passes an explicit userid — apply on behalf of
+ * another user (used for admin-driven ingestion, e.g. Keka sync, manual
+ * resume upload). Regular candidate tokens can never supply userid: the
+ * capability check below blocks it even if a client tries to pass one.
  */
 class apply extends external_api {
 
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'jobid' => new external_value(PARAM_INT, 'Job posting ID to apply for'),
+            'jobid'  => new external_value(PARAM_INT, 'Job posting ID to apply for'),
+            'userid' => new external_value(PARAM_INT, 'Apply on behalf of this user (admin only)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function execute(int $jobid): array {
+    public static function execute(int $jobid, int $userid = 0): array {
         global $DB, $USER;
 
-        $params = self::validate_parameters(self::execute_parameters(), ['jobid' => $jobid]);
+        $params = self::validate_parameters(self::execute_parameters(), ['jobid' => $jobid, 'userid' => $userid]);
 
         $context = \context_system::instance();
         require_capability('local/aurahr_jobs:apply', $context);
+
+        // Determine target user: default to the caller, UNLESS an explicit
+        // userid was passed AND the caller has admin capability.
+        $targetuserid = $USER->id;
+        if (!empty($params['userid']) && $params['userid'] !== $USER->id) {
+            require_capability('moodle/site:config', $context); // admin-only capability
+            $targetuserid = $params['userid'];
+        }
 
         // Verify job exists and is active.
         $job = $DB->get_record('local_aurahr_jobs', ['id' => $params['jobid']], '*', MUST_EXIST);
@@ -40,7 +52,7 @@ class apply extends external_api {
         }
 
         // Check for duplicate application.
-        if ($DB->record_exists('local_aurahr_applications', ['userid' => $USER->id, 'jobid' => $params['jobid']])) {
+        if ($DB->record_exists('local_aurahr_applications', ['userid' => $targetuserid, 'jobid' => $params['jobid']])) {
             throw new \moodle_exception('duplicateapplication', 'local_aurahr_jobs', '', null,
                 get_string('duplicateapplication', 'local_aurahr_jobs'));
         }
@@ -54,16 +66,16 @@ class apply extends external_api {
 
         $now = time();
 
-        // Retrieve the latest resume from the user's file area
+        // Retrieve the latest resume from the TARGET user's file area (not $USER's).
         $fs = get_file_storage();
-        $usercontext = \context_user::instance($USER->id);
+        $usercontext = \context_user::instance($targetuserid);
         $files = $fs->get_area_files($usercontext->id, 'local_aurahr_jobs', 'resume', 0, 'timecreated DESC', false);
         $resume_skills = '';
 
         if (!empty($files)) {
             $latest_file = reset($files);
             $content = $latest_file->get_content();
-            
+
             $temp_file = sys_get_temp_dir() . '/resume_apply_' . time() . '_' . rand(1000, 9999) . '.pdf';
             file_put_contents($temp_file, $content);
 
@@ -100,9 +112,8 @@ class apply extends external_api {
             }
         }
 
-
         $application = (object)[
-            'userid'       => $USER->id,
+            'userid'       => $targetuserid,
             'jobid'        => $params['jobid'],
             'stage'        => 'applied',
             'resume_skills'=> $resume_skills,
@@ -113,7 +124,6 @@ class apply extends external_api {
         ];
 
         $application->id = $DB->insert_record('local_aurahr_applications', $application);
-
 
         // Automatically trigger JD Scoring synchronously.
         try {

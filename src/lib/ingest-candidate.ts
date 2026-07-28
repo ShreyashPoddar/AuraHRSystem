@@ -36,11 +36,11 @@ export interface IngestCandidateInput {
 }
 
 export type IngestCandidateResult =
-  | { status: 'created';         moodleId: number; candidateId: string }
-  | { status: 'already_exists';  moodleId: number | null }
-  | { status: 'moodle_failed';   error: string }
+  | { status: 'created'; moodleId: number; candidateId: string }
+  | { status: 'already_exists'; moodleId: number | null }
+  | { status: 'moodle_failed'; error: string }
   | { status: 'partial_failure'; moodleId: number; error: string }
-  | { status: 'invalid_input';   error: string };
+  | { status: 'invalid_input'; error: string };
 
 // ── Private helpers ────────────────────────────────────────────────────────────
 
@@ -69,12 +69,12 @@ export async function sendActivationEmail(email: string, token: string): Promise
  */
 function generateTempPassword(): string {
   const uuid = crypto.randomUUID().replace(/-/g, ''); // 32 hex chars
-  const upper   = String.fromCharCode(65 + (parseInt(uuid.slice(0,  2), 16) % 26));
-  const lower   = String.fromCharCode(97 + (parseInt(uuid.slice(2,  4), 16) % 26));
-  const digit   = String.fromCharCode(48 + (parseInt(uuid.slice(4,  6), 16) % 10));
+  const upper = String.fromCharCode(65 + (parseInt(uuid.slice(0, 2), 16) % 26));
+  const lower = String.fromCharCode(97 + (parseInt(uuid.slice(2, 4), 16) % 26));
+  const digit = String.fromCharCode(48 + (parseInt(uuid.slice(4, 6), 16) % 10));
   const specials = '!@#$%^&*';
-  const special  = specials[parseInt(uuid.slice(6, 8), 16) % specials.length];
-  const bulk     = uuid.slice(8, 22); // 14 hex chars, always alphanumeric
+  const special = specials[parseInt(uuid.slice(6, 8), 16) % specials.length];
+  const bulk = uuid.slice(8, 22); // 14 hex chars, always alphanumeric
   return `${upper}${lower}${digit}${special}${bulk}`;
 }
 
@@ -108,9 +108,9 @@ export async function ingestCandidate(
     typeof jobId === 'number' && Number.isInteger(jobId) && jobId > 0 ? jobId : null;
 
   // ── Step 0 — Name parsing ───────────────────────────────────────────────────
-  const parts     = name.trim().split(/\s+/);
-  const firstname = parts[0]?.trim()              || 'Unknown';
-  const lastname  = parts.slice(1).join(' ').trim() || 'Unknown';
+  const parts = name.trim().split(/\s+/);
+  const firstname = parts[0]?.trim() || 'Unknown';
+  const lastname = parts.slice(1).join(' ').trim() || 'Unknown';
 
   // ── Step 1 — Idempotency check ──────────────────────────────────────────────
   const [existingMoodleUser, existingPrismaCandidate] = await Promise.all([
@@ -130,8 +130,8 @@ export async function ingestCandidate(
   let newMoodleId: number;
   try {
     const emailPrefix = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-    const uuidSuffix  = kekaUuid.replace(/-/g, '').slice(-4);
-    const username    = `${emailPrefix}_${uuidSuffix}`.substring(0, 100);
+    const uuidSuffix = kekaUuid.replace(/-/g, '').slice(-4);
+    const username = `${emailPrefix}_${uuidSuffix}`.substring(0, 100);
 
     const moodleUser = await moodleAdminCreateUser({
       username,
@@ -155,9 +155,9 @@ export async function ingestCandidate(
         name,
         email,
         matchScore: Math.round(jdScore),
-        status:     'APPLIED',
+        status: 'APPLIED',
         kekaUuid,
-        skills:     [],
+        skills: [],
       },
       select: { id: true },
     });
@@ -173,7 +173,7 @@ export async function ingestCandidate(
   // ── Step 5 — Apply to job (conditional, non-fatal) ──────────────────────────
   if (resolvedJobId !== null) {
     try {
-      await moodleAdminApplyToJob(resolvedJobId);
+      await moodleAdminApplyToJob(resolvedJobId, newMoodleId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(
@@ -185,7 +185,7 @@ export async function ingestCandidate(
   // ── Step 6 — Generate and store activation token ────────────────────────────
   let activationToken: string | null = null;
   try {
-    const rawToken  = crypto.randomUUID();
+    const rawToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     await prisma.activationToken.create({
@@ -206,8 +206,8 @@ export async function ingestCandidate(
 
   // ── Step 8 — Return success ─────────────────────────────────────────────────
   return {
-    status:      'created',
-    moodleId:    newMoodleId,
+    status: 'created',
+    moodleId: newMoodleId,
     candidateId: prismaCandidate.id,
   };
 }
