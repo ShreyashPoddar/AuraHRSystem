@@ -11,7 +11,7 @@ import {
 
 const menuItems = [
   { href: '/org',              label: 'Overview',          icon: Home },
-  { href: '/org/applications', label: 'All Applications',  icon: FileText },
+  { href: '/org/applications', label: 'All Vacancies',  icon: FileText },
   { href: '/org/vacancies',    label: 'Current Vacancies', icon: Briefcase },
   { href: '/org/scheduler',    label: 'Smart Scheduler',   icon: Calendar },
   { href: '/org/help',         label: 'Help',              icon: HelpCircle },

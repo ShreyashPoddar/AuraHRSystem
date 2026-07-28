@@ -57,8 +57,6 @@ model Candidate {
   interviews       Interview[]
   proctoringLogs   ProctoringLog[]
   activationTokens ActivationToken[]
-  testInviteTokens TestInviteToken[]
-  contactLogs      ContactLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -129,8 +127,8 @@ model EmailTemplate {
 model TestInviteToken {
   id          String    @id @default(cuid())
   token       String    @unique
+  // Moodle application/user ID — no FK, since real candidates live in Moodle's database, not Prisma
   candidateId String
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   testId      String
   expiresAt   DateTime
   usedAt      DateTime?
@@ -141,8 +139,8 @@ model TestInviteToken {
 // feature — records what was sent, using which template (if any), and by whom.
 model ContactLog {
   id          String    @id @default(cuid())
+  // Moodle application/user ID — no FK, since real candidates live in Moodle's database, not Prisma
   candidateId String
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   templateId  String?
   subject     String
   body        String    @db.Text
