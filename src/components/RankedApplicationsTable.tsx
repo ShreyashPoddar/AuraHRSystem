@@ -344,7 +344,6 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
                   <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">S.No.</th>
                   <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Name</th>
                   <th className="text-center px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Resume</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">App ID</th>
                   <th className="text-left px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Date Applied</th>
                   <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">JD</th>
                   <th className="text-right px-5 py-3.5 text-[10px] font-semibold text-ink/40 uppercase tracking-wider">Acad.</th>
@@ -443,9 +442,6 @@ export default function RankedApplicationsTable(props: RankedApplicationsTablePr
                           </button>
                         );
                       })()}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-xs font-mono text-ink/40">APP-{app.id}</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className="text-xs text-ink/50">{formatDate(app.timecreated)}</span>
