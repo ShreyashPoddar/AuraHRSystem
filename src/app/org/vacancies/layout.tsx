@@ -113,6 +113,7 @@ export default function VacanciesLayout({ children }: { children: React.ReactNod
                     >
                       <Link
                         href={`/org/vacancies/${job.id}`}
+                        prefetch={false}
                         className={`flex items-center justify-between px-5 py-4 transition-all group ${
                           isSelected
                             ? 'bg-sage/10 border-l-4 border-sage'

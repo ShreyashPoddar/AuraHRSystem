@@ -181,6 +181,7 @@ export default function OrgOverviewPage() {
                   <Link
                     key={job.id}
                     href={`/org/vacancies/${job.id}`}
+                    prefetch={false}
                     className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:border-blue-200 hover:shadow-md transition-all group bg-slate-50/50 hover:bg-white"
                   >
                     <div className="flex items-center gap-4">
