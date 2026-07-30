@@ -21,12 +21,12 @@ async function main() {
         subject: 'We received your application — {{jobTitle}}',
         body: `Dear {{candidateName}},
 
-Thank you for applying for the {{jobTitle}} role at AuraHR. We're currently reviewing your application and will be in touch soon with an update.
+Thank you for applying for the {{jobTitle}} role at Rackbank. We're currently reviewing your application and will be in touch soon with an update.
 
 We appreciate your interest in joining our team.
 
 Warm regards,
-The AuraHR Recruitment Team`,
+The Rackbank Recruitment Team`,
       },
       {
         name: 'Request More Information',
@@ -34,14 +34,14 @@ The AuraHR Recruitment Team`,
         subject: 'Quick follow-up on your application — {{jobTitle}}',
         body: `Dear {{candidateName}},
 
-Thank you for applying for the {{jobTitle}} role at AuraHR. We've been reviewing your application and would love to learn a bit more about you.
+Thank you for applying for the {{jobTitle}} role at Rackbank. We've been reviewing your application and would love to learn a bit more about you.
 
 Could you please send us an updated resume and any additional information about your most recent experience that's relevant to this role? You can simply reply to this email.
 
-We look forward to hearing from you and appreciate your continued interest in joining AuraHR.
+We look forward to hearing from you and appreciate your continued interest in joining Rackbank.
 
 Warm regards,
-The AuraHR Recruitment Team`,
+The Rackbank Recruitment Team`,
       },
       {
         name: 'Not Moving Forward',
@@ -49,7 +49,7 @@ The AuraHR Recruitment Team`,
         subject: 'Update on your application — {{jobTitle}}',
         body: `Dear {{candidateName}},
 
-Thank you for your interest in the {{jobTitle}} position at AuraHR and for the time you invested in your application.
+Thank you for your interest in the {{jobTitle}} position at Rackbank and for the time you invested in your application.
 
 After careful consideration, we've decided to move forward with other candidates whose experience more closely aligns with our current requirements. This was a difficult decision given the calibre of applications we received.
 
@@ -58,7 +58,7 @@ We truly appreciate your effort and encourage you to apply for future openings t
 We wish you all the best in your job search and future endeavours.
 
 Kind regards,
-The AuraHR Recruitment Team`,
+The Rackbank Recruitment Team`,
       },
     ],
     skipDuplicates: true,

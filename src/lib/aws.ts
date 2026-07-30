@@ -49,7 +49,7 @@ export async function sendInterviewInvite(to: string, candidateName: string, rol
           Charset: "UTF-8",
           Data: `
             <div style="font-family: serif; background: #faf8f3; p: 40px; border-radius: 20px;">
-              <h1 style="color: #c8a84b;">AuraHR Interview Invitation</h1>
+              <h1 style="color: #c8a84b;">Rackbank Interview Invitation</h1>
               <p>Dear ${candidateName},</p>
               <p>We are impressed by your profile for the <b>${role}</b> position.</p>
               <p>Your AI-proctored interview is scheduled. Please join via the link below:</p>
@@ -59,14 +59,14 @@ export async function sendInterviewInvite(to: string, candidateName: string, rol
           `,
         },
       },
-      Subject: { Charset: "UTF-8", Data: `Interview Invitation: ${role} at AuraHR` },
+      Subject: { Charset: "UTF-8", Data: `Interview Invitation: ${role} at Rackbank` },
     },
     Source: sender,
   });
   // ── Dry-run safety check ──────────────────────────────
   if (process.env.EMAIL_DRY_RUN === "true") {
     console.log("[DRY RUN] Email NOT sent. Would have gone to:", to);
-    console.log("[DRY RUN] Subject:", `Interview Invitation: ${role} at AuraHR`);
+    console.log("[DRY RUN] Subject:", `Interview Invitation: ${role} at Rackbank`);
     return { dryRun: true, wouldSendTo: to };
   }
 
@@ -121,7 +121,7 @@ export async function parseResumeWithTextract(fileBuffer: Buffer, fileName: stri
       
       EXPERIENCE
       Senior Software Engineer | AuraTech Solutions | 2020 - Present
-      - Lead Developer for the AuraHR recruitment ecosystem.
+      - Lead Developer for the Rackbank recruitment ecosystem.
       - 5+ years of experience in full-stack development and AI integration.
       
       EDUCATION
